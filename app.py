@@ -160,6 +160,7 @@ def download_scan(scan_id):
                      mimetype='application/zip')
 
 def format_results(results, sort_type):
+    """Форматирование результатов для текстовых файлов"""
     content = f"Результаты проверки - Сортировка по {sort_type}\n"
     content += "=" * 50 + "\n\n"
     
@@ -181,12 +182,69 @@ def format_results(results, sort_type):
     
     return content
 
+@app.route('/download/<int:scan_id>')
+@login_required
+def download_scan(scan_id):
+    scan = ScanHistory.query.filter_by(id=scan_id, user_id=current_user.id).first_or_404()
+    results = scan.get_scan_data()
+    
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+        valid_results = [r for r in results if r.get('valid')]
+        
+        # Сортировка по балансу
+        sorted_by_balance = sorted(valid_results, 
+                                 key=lambda x: x.get('robux_balance', {}).get('balance', 0), 
+                                 reverse=True)
+        balance_content = format_results(sorted_by_balance, 'балансу')
+        zip_file.writestr('Сортировка по балансу.txt', balance_content.encode('utf-8'))
+        
+        # Сортировка по Premium статусу
+        premium_first = sorted(valid_results, 
+                             key=lambda x: x.get('premium_status', {}).get('is_premium', False), 
+                             reverse=True)
+        premium_content = format_results(premium_first, 'Premium статусу')
+        zip_file.writestr('Сортировка по Premium.txt', premium_content.encode('utf-8'))
+        
+        # Сортировка по безопасности
+        sorted_by_security = sorted(valid_results, 
+                                  key=lambda x: x.get('security_analysis', {}).get('security_score', 0), 
+                                  reverse=True)
+        security_content = format_results(sorted_by_security, 'безопасности')
+        zip_file.writestr('Сортировка по безопасности.txt', security_content.encode('utf-8'))
+        
+        # Сортировка по возрасту аккаунта
+        sorted_by_age = sorted(valid_results, 
+                             key=lambda x: x.get('account_age', {}).get('age_days', 0), 
+                             reverse=True)
+        age_content = format_results(sorted_by_age, 'возрасту аккаунта')
+        zip_file.writestr('Сортировка по возрасту.txt', age_content.encode('utf-8'))
+        
+        # Все валидные куки
+        all_valid_content = format_results(valid_results, 'всем параметрам')
+        zip_file.writestr('Все валидные куки.txt', all_valid_content.encode('utf-8'))
+        
+        # JSON файл
+        zip_file.writestr('полные_данные.json', json.dumps(results, ensure_ascii=False, indent=2).encode('utf-8'))
+    
+    zip_buffer.seek(0)
+    
+    filename = f"scan_results_{scan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    return send_file(zip_buffer, 
+                     as_attachment=True, 
+                     download_name=filename,
+                     mimetype='application/zip')
+
 @app.route('/profile')
 @login_required
 def profile():
     # Получаем статистику для профиля
     total_scans = ScanHistory.query.filter_by(user_id=current_user.id).count()
     total_cookies = db.session.query(db.func.sum(ScanHistory.total_cookies)).filter(
+        ScanHistory.user_id == current_user.id
+    ).scalar() or 0
+    valid_cookies = db.session.query(db.func.sum(ScanHistory.valid_cookies)).filter(
         ScanHistory.user_id == current_user.id
     ).scalar() or 0
     last_scan = ScanHistory.query.filter_by(user_id=current_user.id).order_by(
@@ -196,6 +254,7 @@ def profile():
     return render_template('profile.html',
                          total_scans=total_scans,
                          total_cookies=total_cookies,
+                         valid_cookies=valid_cookies,
                          last_scan=last_scan)
 
 @app.route('/health')

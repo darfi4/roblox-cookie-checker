@@ -35,6 +35,17 @@
                     </div>
                     <div style="opacity: 0.8;">Проверено куки</div>
                 </div>
+
+                <div style="text-align: center; padding: 1rem; background: var(--glass-dark); border-radius: 10px;">
+                    <div style="font-size: 2rem; color: var(--info); font-weight: bold;">
+                        {% if total_cookies > 0 %}
+                            {{ ((valid_cookies / total_cookies * 100) | round(1)) }}%
+                        {% else %}
+                            0%
+                        {% endif %}
+                    </div>
+                    <div style="opacity: 0.8;">Валидных</div>
+                </div>
             </div>
 
             <div>
@@ -42,20 +53,38 @@
                     <i class="fas fa-chart-bar"></i> Статистика активности
                 </h3>
                 <div style="display: grid; gap: 0.5rem;">
-                    <div style="display: flex; justify-content: between;">
-                        <span>Активность:</span>
-                        <span style="color: var(--secondary);">
-                            {% if total_scans > 10 %}Высокая{% elif total_scans > 3 %}Средняя{% else %}Низкая{% endif %}
+                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--glass-border);">
+                        <span>Уровень активности:</span>
+                        <span style="color: var(--secondary); font-weight: bold;">
+                            {% if total_scans > 10 %}
+                                Высокий
+                            {% elif total_scans > 3 %}
+                                Средний
+                            {% else %}
+                                Низкий
+                            {% endif %}
                         </span>
                     </div>
-                    <div style="display: flex; justify-content: between;">
-                        <span>Последняя активность:</span>
+                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--glass-border);">
+                        <span>Последняя проверка:</span>
                         <span style="opacity: 0.8;">
                             {% if last_scan %}
                                 {{ last_scan.created_at.strftime('%d.%m.%Y %H:%M') }}
                             {% else %}
                                 Нет данных
                             {% endif %}
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid var(--glass-border);">
+                        <span>Валидных куки:</span>
+                        <span style="color: var(--secondary); font-weight: bold;">
+                            {{ valid_cookies }}
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding: 0.5rem 0;">
+                        <span>Невалидных куки:</span>
+                        <span style="color: var(--danger); font-weight: bold;">
+                            {{ total_cookies - valid_cookies }}
                         </span>
                     </div>
                 </div>
@@ -76,6 +105,10 @@
             
             <a href="{{ url_for('dashboard') }}" class="btn">
                 <i class="fas fa-tachometer-alt"></i> Панель управления
+            </a>
+
+            <a href="{{ url_for('index') }}" class="btn btn-success">
+                <i class="fas fa-search"></i> Новая проверка
             </a>
 
             <div style="margin-top: 1rem; padding: 1rem; background: var(--glass-dark); border-radius: 10px;">
@@ -108,6 +141,10 @@
                     <i class="fas fa-check" style="color: var(--secondary);"></i>
                     <span>Выходите из аккаунта на чужих устройствах</span>
                 </li>
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-check" style="color: var(--secondary);"></i>
+                    <span>Регулярно меняйте пароли</span>
+                </li>
             </ul>
         </div>
     </div>
@@ -127,6 +164,18 @@
                 <i class="fas fa-trash"></i> Удалить аккаунт
             </button>
         </div>
+
+        <div style="padding: 1.5rem; background: rgba(245, 158, 11, 0.1); border: 1px solid var(--warning); border-radius: 10px;">
+            <h3 style="color: var(--warning); margin-bottom: 1rem;">
+                <i class="fas fa-eraser"></i> Очистка истории
+            </h3>
+            <p style="opacity: 0.8; margin-bottom: 1rem;">
+                Удалить всю историю проверок. Это действие нельзя отменить.
+            </p>
+            <button class="btn btn-warning" onclick="clearHistory()">
+                <i class="fas fa-eraser"></i> Очистить историю
+            </button>
+        </div>
     </div>
 </div>
 
@@ -136,48 +185,163 @@ function exportData() {
 }
 
 function showDeleteConfirmation() {
-    if (confirm('ВНИМАНИЕ! Вы уверены что хотите удалить аккаунт? Это действие невозможно отменить. Все ваши данные будут потеряны.')) {
-        showNotification('Функция удаления аккаунта временно недоступна', 'error');
+    if (confirm('🚨 ВНИМАНИЕ! Вы уверены что хотите удалить аккаунт?\n\nЭто действие невозможно отменить. Все ваши данные будут безвозвратно удалены.')) {
+        showNotification('Функция удаления аккаунта временно недоступна. Обратитесь в поддержку.', 'error');
+    }
+}
+
+function clearHistory() {
+    if (confirm('⚠️ Вы уверены что хотите очистить всю историю проверок?\n\nЭто действие нельзя отменить.')) {
+        showNotification('Функция очистки истории будет доступна в следующем обновлении', 'warning');
     }
 }
 
 function showNotification(message, type = 'info') {
+    // Удаляем существующие уведомления
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(notification => notification.remove());
+    
     const notification = document.createElement('div');
     notification.className = `notification ${type}`;
     notification.textContent = message;
-    document.querySelector('.container').appendChild(notification);
+    notification.style.cssText = `
+        position: fixed;
+        top: 100px;
+        right: 20px;
+        padding: 1rem 2rem;
+        border-radius: 10px;
+        color: white;
+        font-weight: 600;
+        z-index: 1000;
+        animation: slideInRight 0.3s ease;
+        backdrop-filter: blur(20px);
+        max-width: 400px;
+    `;
     
-    setTimeout(() => notification.remove(), 4000);
+    if (type === 'success') notification.style.background = 'var(--secondary)';
+    else if (type === 'error') notification.style.background = 'var(--danger)';
+    else if (type === 'warning') notification.style.background = 'var(--warning)';
+    else notification.style.background = 'var(--info)';
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideInRight 0.3s ease reverse';
+        setTimeout(() => notification.remove(), 300);
+    }, 4000);
 }
 
 // Анимация появления элементов
 document.addEventListener('DOMContentLoaded', function() {
     const cards = document.querySelectorAll('.card');
     cards.forEach((card, index) => {
-        card.style.animationDelay = `${index * 0.1}s`;
-        card.classList.add('fade-in');
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(30px)';
+        card.style.transition = 'all 0.6s ease';
+        
+        setTimeout(() => {
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100 + 200);
+    });
+    
+    // Анимация для статистических карточек
+    const statCards = document.querySelectorAll('[style*="text-align: center"]');
+    statCards.forEach((card, index) => {
+        card.style.transform = 'scale(0.8)';
+        card.style.transition = 'all 0.5s ease';
+        
+        setTimeout(() => {
+            card.style.transform = 'scale(1)';
+        }, index * 100 + 500);
     });
 });
+
+// Добавляем стили для анимаций
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    .card {
+        opacity: 0;
+        transform: translateY(30px);
+        transition: all 0.6s ease;
+    }
+    
+    .btn {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s;
+    }
+    
+    .btn:hover::before {
+        left: 100%;
+    }
+    
+    .btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-card {
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px) scale(1.05);
+    }
+`;
+document.head.appendChild(style);
 </script>
 
 <style>
-.card {
-    opacity: 0;
-    transform: translateY(20px);
-    transition: all 0.6s ease;
+.hero-title {
+    background: linear-gradient(45deg, var(--primary), var(--secondary), var(--info));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    background-size: 200% 200%;
+    animation: gradientShift 3s ease infinite;
 }
 
-.card.fade-in {
-    opacity: 1;
-    transform: translateY(0);
+@keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.card {
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--glass-border);
+    transition: all 0.4s ease;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
 }
 
 .btn {
-    transition: all 0.3s ease;
-}
-
-.btn:hover {
-    transform: translateY(-2px);
+    backdrop-filter: blur(10px);
 }
 </style>
 {% endblock %}
