@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Профиль - RCC Pro{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1 class="hero-title">Мой профиль</h1>
+    <p class="hero-subtitle">Управление вашим аккаунтом и настройки</p>
+</section>
+
+<div class="card-grid">
+    <div class="card">
+        <h2 class="card-title"><i class="fas fa-user-circle"></i> Информация об аккаунте</h2>
+        <div style="display: grid; gap: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--glass-dark); border-radius: 10px;">
+                <div style="font-size: 2rem; color: var(--primary);">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <strong style="font-size: 1.2rem;">{{ current_user.email }}</strong>
+                    <div style="opacity: 0.8; font-size: 0.9rem;">Зарегистрирован: {{ current_user.created_at.strftime('%d.%m.%Y') }}</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                <div style="text-align: center; padding: 1rem; background: var(--glass-dark); border-radius: 10px;">
+                    <div style="font-size: 2rem; color: var(--primary); font-weight: bold;">
+                        {{ total_scans }}
+                    </div>
+                    <div style="opacity: 0.8;">Всего проверок</div>
+                </div>
+                
+                <div style="text-align: center; padding: 1rem; background: var(--glass-dark); border-radius: 10px;">
+                    <div style="font-size: 2rem; color: var(--secondary); font-weight: bold;">
+                        {{ total_cookies }}
+                    </div>
+                    <div style="opacity: 0.8;">Проверено куки</div>
+                </div>
+            </div>
+
+            <div>
+                <h3 style="margin-bottom: 1rem; color: var(--primary);">
+                    <i class="fas fa-chart-bar"></i> Статистика активности
+                </h3>
+                <div style="display: grid; gap: 0.5rem;">
+                    <div style="display: flex; justify-content: between;">
+                        <span>Активность:</span>
+                        <span style="color: var(--secondary);">
+                            {% if total_scans > 10 %}Высокая{% elif total_scans > 3 %}Средняя{% else %}Низкая{% endif %}
+                        </span>
+                    </div>
+                    <div style="display: flex; justify-content: between;">
+                        <span>Последняя активность:</span>
+                        <span style="opacity: 0.8;">
+                            {% if last_scan %}
+                                {{ last_scan.created_at.strftime('%d.%m.%Y %H:%M') }}
+                            {% else %}
+                                Нет данных
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2 class="card-title"><i class="fas fa-cog"></i> Управление аккаунтом</h2>
+        <div style="display: grid; gap: 1rem;">
+            <a href="{{ url_for('auth.reset_password') }}" class="btn">
+                <i class="fas fa-key"></i> Сменить пароль
+            </a>
+            
+            <a href="{{ url_for('history') }}" class="btn">
+                <i class="fas fa-history"></i> История проверок
+            </a>
+            
+            <a href="{{ url_for('dashboard') }}" class="btn">
+                <i class="fas fa-tachometer-alt"></i> Панель управления
+            </a>
+
+            <div style="margin-top: 1rem; padding: 1rem; background: var(--glass-dark); border-radius: 10px;">
+                <h3 style="margin-bottom: 0.5rem; color: var(--info);">
+                    <i class="fas fa-download"></i> Экспорт данных
+                </h3>
+                <p style="opacity: 0.8; font-size: 0.9rem; margin-bottom: 1rem;">
+                    Вы можете экспортировать все ваши данные в формате JSON
+                </p>
+                <button class="btn" style="width: 100%;" onclick="exportData()">
+                    <i class="fas fa-file-export"></i> Экспорт всех данных
+                </button>
+            </div>
+        </div>
+
+        <div style="margin-top: 2rem; padding: 1.5rem; background: var(--glass-dark); border-radius: 15px; border-left: 4px solid var(--secondary);">
+            <h3 style="margin-bottom: 1rem; color: var(--secondary);">
+                <i class="fas fa-shield-alt"></i> Безопасность аккаунта
+            </h3>
+            <ul style="list-style: none; padding: 0; display: grid; gap: 0.5rem;">
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-check" style="color: var(--secondary);"></i>
+                    <span>Используйте сложные пароли</span>
+                </li>
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-check" style="color: var(--secondary);"></i>
+                    <span>Не сообщайте пароль третьим лицам</span>
+                </li>
+                <li style="display: flex; align-items: center; gap: 0.5rem;">
+                    <i class="fas fa-check" style="color: var(--secondary);"></i>
+                    <span>Выходите из аккаунта на чужих устройствах</span>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 2rem;">
+    <h2 class="card-title"><i class="fas fa-exclamation-triangle"></i> Опасные действия</h2>
+    <div style="display: grid; gap: 1rem;">
+        <div style="padding: 1.5rem; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--danger); border-radius: 10px;">
+            <h3 style="color: var(--danger); margin-bottom: 1rem;">
+                <i class="fas fa-trash-alt"></i> Удаление аккаунта
+            </h3>
+            <p style="opacity: 0.8; margin-bottom: 1rem;">
+                Это действие невозможно отменить. Все ваши данные будут безвозвратно удалены.
+            </p>
+            <button class="btn btn-danger" onclick="showDeleteConfirmation()">
+                <i class="fas fa-trash"></i> Удалить аккаунт
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportData() {
+    showNotification('Функция экспорта данных будет доступна в ближайшем обновлении', 'info');
+}
+
+function showDeleteConfirmation() {
+    if (confirm('ВНИМАНИЕ! Вы уверены что хотите удалить аккаунт? Это действие невозможно отменить. Все ваши данные будут потеряны.')) {
+        showNotification('Функция удаления аккаунта временно недоступна', 'error');
+    }
+}
+
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.querySelector('.container').appendChild(notification);
+    
+    setTimeout(() => notification.remove(), 4000);
+}
+
+// Анимация появления элементов
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach((card, index) => {
+        card.style.animationDelay = `${index * 0.1}s`;
+        card.classList.add('fade-in');
+    });
+});
+</script>
+
+<style>
+.card {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: all 0.6s ease;
+}
+
+.card.fade-in {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.btn {
+    transition: all 0.3s ease;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}

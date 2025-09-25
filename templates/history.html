@@ -1,100 +1,70 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>История проверок</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <style>
-        .history-container {
-            max-width: 1000px;
-        }
-        .history-list {
-            margin-top: 30px;
-        }
-        .history-item {
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 15px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            transition: all 0.3s ease;
-        }
-        .history-item:hover {
-            transform: translateX(10px);
-        }
-        .history-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 10px;
-        }
-        .back-btn {
-            background: linear-gradient(45deg, #ff6b6b, #feca57);
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 10px;
-            text-decoration: none;
-            display: inline-block;
-            margin-bottom: 20px;
-        }
-    </style>
-</head>
-<body>
-    <div id="particles-js"></div>
-    
-    <div class="container">
-        <div class="glass-card history-container">
-            <a href="/" class="back-btn">← Назад</a>
-            <h1 class="animated-title">📊 История проверок</h1>
-            
-            <div id="historyList" class="history-list">
-                <!-- История будет загружена через JavaScript -->
-            </div>
-        </div>
-    </div>
+{% extends "base.html" %}
+{% block title %}История проверок - RCC Pro{% endblock %}
 
-    <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            loadHistory();
+{% block content %}
+<section class="hero">
+    <h1 class="hero-title">История проверок</h1>
+    <p class="hero-subtitle">Все ваши предыдущие проверки куки</p>
+</section>
+
+<div class="card">
+    <h2 class="card-title"><i class="fas fa-list"></i> Список проверок</h2>
+    
+    {% if scans.items %}
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 1px solid var(--glass-border);">
+                        <th style="padding: 1rem; text-align: left;">ID</th>
+                        <th style="padding: 1rem; text-align: left;">Дата</th>
+                        <th style="padding: 1rem; text-align: center;">Всего куки</th>
+                        <th style="padding: 1rem; text-align: center;">Валидных</th>
+                        <th style="padding: 1rem; text-align: center;">Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for scan in scans.items %}
+                    <tr style="border-bottom: 1px solid var(--glass-border);">
+                        <td style="padding: 1rem;">{{ scan.id }}</td>
+                        <td style="padding: 1rem;">{{ scan.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                        <td style="padding: 1rem; text-align: center;">{{ scan.total_cookies }}</td>
+                        <td style="padding: 1rem; text-align: center; color: var(--secondary);">{{ scan.valid_cookies }}</td>
+                        <td style="padding: 1rem; text-align: center;">
+                            <a href="{{ url_for('download_scan', scan_id=scan.id) }}" class="btn" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                                <i class="fas fa-download"></i> Скачать
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <div style="display: flex; justify-content: center; margin-top: 2rem; gap: 1rem;">
+            {% if scans.has_prev %}
+                <a href="{{ url_for('history', page=scans.prev_num) }}" class="btn">
+                    <i class="fas fa-chevron-left"></i> Назад
+                </a>
+            {% endif %}
             
-            async function loadHistory() {
-                try {
-                    const response = await fetch('/get_history');
-                    const history = await response.json();
-                    
-                    const historyList = document.getElementById('historyList');
-                    
-                    if (history.length === 0) {
-                        historyList.innerHTML = '<p style="text-align: center; color: rgba(255,255,255,0.7);">История проверок пуста</p>';
-                        return;
-                    }
-                    
-                    historyList.innerHTML = history.map(item => `
-                        <div class="history-item">
-                            <div class="history-header">
-                                <h3>${item.username}</h3>
-                                <span>${item.created_at}</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; align-items: center;">
-                                <div>
-                                    <span>Баланс: ${item.balance} Robux</span> | 
-                                    <span>Premium: ${item.premium ? '✅' : '❌'}</span> | 
-                                    <span>2FA: ${item['2fa'] ? '✅' : '❌'}</span>
-                                </div>
-                                <a href="/download_history/${item.check_id}" class="action-btn download-btn" style="padding: 8px 15px; font-size: 12px;">
-                                    📥 Скачать
-                                </a>
-                            </div>
-                        </div>
-                    `).join('');
-                } catch (error) {
-                    console.error('Error loading history:', error);
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+            <span style="padding: 1rem; opacity: 0.7;">
+                Страница {{ scans.page }} из {{ scans.pages }}
+            </span>
+            
+            {% if scans.has_next %}
+                <a href="{{ url_for('history', page=scans.next_num) }}" class="btn">
+                    Вперед <i class="fas fa-chevron-right"></i>
+                </a>
+            {% endif %}
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 3rem;">
+            <i class="fas fa-history" style="font-size: 3rem; opacity: 0.3; margin-bottom: 1rem;"></i>
+            <p style="opacity: 0.7;">У вас еще нет проверок</p>
+            <a href="{{ url_for('index') }}" class="btn" style="margin-top: 1rem;">
+                <i class="fas fa-search"></i> Начать первую проверку
+            </a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

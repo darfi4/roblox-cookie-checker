@@ -4,3 +4,9 @@ __pycache__/
 venv/
 .env.local
 .DS_Store
+*.log
+instance/
+.pytest_cache/
+.coverage
+*.sqlite
+*.db
