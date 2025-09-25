@@ -3,104 +3,458 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roblox Cookie Checker</title>
+    <title>🔍 Roblox Cookie Checker Pro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --dark: #1f2937;
+            --darker: #111827;
+            --light: #f8fafc;
+            --glass: rgba(255, 255, 255, 0.1);
+            --glass-border: rgba(255, 255, 255, 0.2);
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--darker), var(--dark));
+            color: var(--light);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
         }
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        textarea {
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100%;
-            height: 150px;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            resize: vertical;
-            font-family: monospace;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
         }
-        button {
-            background: #007bff;
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--primary);
+            border-radius: 50%;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 1s ease;
+        }
+
+        .logo {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, var(--light), #e5e7eb);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.8;
+            margin-bottom: 2rem;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            animation: slideInUp 0.8s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            opacity: 0.9;
+        }
+
+        .textarea {
+            width: 100%;
+            height: 200px;
+            padding: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+            color: var(--light);
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            resize: vertical;
+            transition: all 0.3s ease;
+        }
+
+        .textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, var(--primary), var(--primary-dark));
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
             cursor: pointer;
-            margin-top: 10px;
-            font-size: 16px;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
         }
-        button:hover {
-            background: #0056b3;
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.4);
         }
-        button:disabled {
-            background: #6c757d;
+
+        .btn:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
+            transform: none;
         }
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 5px;
+
+        .btn-danger {
+            background: linear-gradient(45deg, var(--danger), #dc2626);
         }
-        .valid {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
+
+        .results {
+            margin-top: 2rem;
         }
-        .invalid {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-        }
-        .cookie-info {
-            margin: 10px 0;
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 5px;
-        }
+
         .stats {
-            background: #e9ecef;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--glass);
+            padding: 1.5rem;
+            border-radius: 15px;
+            text-align: center;
+            border: 1px solid var(--glass-border);
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-valid { color: var(--secondary); }
+        .stat-invalid { color: var(--danger); }
+        .stat-total { color: var(--primary); }
+
+        .result-item {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            animation: slideInRight 0.5s ease;
+        }
+
+        .result-valid {
+            border-left: 4px solid var(--secondary);
+        }
+
+        .result-invalid {
+            border-left: 4px solid var(--danger);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .result-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .result-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .badge-valid {
+            background: var(--secondary);
+        }
+
+        .badge-invalid {
+            background: var(--danger);
+        }
+
+        .result-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .detail-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .feature-list li::before {
+            content: "✓";
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            opacity: 0.7;
+            font-size: 0.9rem;
         }
     </style>
 </head>
 <body>
+    <div class="particles" id="particles"></div>
+    
     <div class="container">
-        <h1>🔍 Roblox Cookie Checker</h1>
-        <p>Введите куки .ROBLOSECURITY (по одной на строку):</p>
-        
-        <textarea id="cookiesInput" placeholder="Вставьте куки здесь...
-Пример:
-_cookie1_здесь_
-_cookie2_здесь_
-_cookie3_здесь_"></textarea>
-        <br>
-        <button onclick="checkCookies()" id="checkButton">Проверить куки</button>
-        
-        <div id="results"></div>
+        <header class="header">
+            <div class="logo">🔍</div>
+            <h1 class="title">Roblox Cookie Checker Pro</h1>
+            <p class="subtitle">Проверьте валидность Roblox куки с расширенной статистикой</p>
+        </header>
+
+        <div class="main-content">
+            <div class="card">
+                <h2 class="card-title"><i class="fas fa-cookie"></i> Проверка куки</h2>
+                <div class="input-group">
+                    <label class="input-label">Введите куки .ROBLOSECURITY (по одной на строку):</label>
+                    <textarea class="textarea" id="cookiesInput" placeholder="_your_cookie_here_
+_another_cookie_here_"></textarea>
+                </div>
+                <button class="btn" onclick="checkCookies()" id="checkButton">
+                    <i class="fas fa-search"></i> Проверить куки
+                </button>
+                <button class="btn btn-danger" onclick="clearInput()" style="margin-left: 1rem;">
+                    <i class="fas fa-trash"></i> Очистить
+                </button>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title"><i class="fas fa-star"></i> Возможности</h2>
+                <ul class="feature-list">
+                    <li>Проверка валидности куки</li>
+                    <li>Информация об аккаунте</li>
+                    <li>Баланс Robux</li>
+                    <li>Premium статус</li>
+                    <li>Дата создания аккаунта</li>
+                    <li>Статус бана</li>
+                    <li>Проверка друзей</li>
+                    <li>Анализ безопасности</li>
+                    <li>Множественная проверка</li>
+                    <li>Детальная статистика</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="results" id="results"></div>
+
+        <footer class="footer">
+            <p>Roblox Cookie Checker Pro • Безопасная проверка • Данные не сохраняются</p>
+        </footer>
     </div>
 
     <script>
+        // Создание частиц
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+            
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + 'vw';
+                particle.style.top = Math.random() * 100 + 'vh';
+                particle.style.animationDelay = Math.random() * 5 + 's';
+                particle.style.animation = `float ${Math.random() * 10 + 10}s linear infinite`;
+                particlesContainer.appendChild(particle);
+            }
+
+            // Анимация движения частиц за курсором
+            document.addEventListener('mousemove', (e) => {
+                const particles = document.querySelectorAll('.particle');
+                const mouseX = e.clientX / window.innerWidth;
+                const mouseY = e.clientY / window.innerHeight;
+                
+                particles.forEach((particle, index) => {
+                    const speed = (index % 3 + 1) * 0.0003;
+                    const x = (mouseX - 0.5) * speed * 1000;
+                    const y = (mouseY - 0.5) * speed * 1000;
+                    
+                    particle.style.transform = `translate(${x}px, ${y}px)`;
+                });
+            });
+        }
+
+        // Стили для анимации частиц
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes float {
+                0%, 100% { transform: translate(0, 0) rotate(0deg); }
+                25% { transform: translate(10px, 10px) rotate(90deg); }
+                50% { transform: translate(0, 20px) rotate(180deg); }
+                75% { transform: translate(-10px, 10px) rotate(270deg); }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Основная функция проверки
         async function checkCookies() {
             const input = document.getElementById('cookiesInput').value;
             const resultsDiv = document.getElementById('results');
             const button = document.getElementById('checkButton');
             
             if (!input.trim()) {
-                alert('Пожалуйста, введите куки для проверки');
+                showNotification('Пожалуйста, введите куки для проверки', 'error');
                 return;
             }
             
             button.disabled = true;
-            button.textContent = 'Проверяем...';
-            resultsDiv.innerHTML = '<p>⏳ Проверяем куки...</p>';
+            button.innerHTML = '<div class="loading"></div> Проверяем...';
+            resultsDiv.innerHTML = '<div class="card"><div class="card-title"><i class="fas fa-spinner"></i> Проверка куки...</div><p>Идет проверка, пожалуйста подождите</p></div>';
             
             try {
                 const cookies = input.split('\n').filter(c => c.trim());
@@ -117,48 +471,98 @@ _cookie3_здесь_"></textarea>
                 
                 if (response.ok) {
                     displayResults(data);
+                    showNotification(`Проверка завершена! Валидных: ${data.valid}, Невалидных: ${data.invalid}`, 'success');
                 } else {
-                    resultsDiv.innerHTML = `<div class="invalid">❌ Ошибка: ${data.error}</div>`;
+                    throw new Error(data.error || 'Ошибка сервера');
                 }
                 
             } catch (error) {
-                resultsDiv.innerHTML = `<div class="invalid">❌ Ошибка: ${error.message}</div>`;
+                resultsDiv.innerHTML = `
+                    <div class="result-item result-invalid">
+                        <div class="result-title">Ошибка проверки</div>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                showNotification('Ошибка при проверке куки', 'error');
             } finally {
                 button.disabled = false;
-                button.textContent = 'Проверить куки';
+                button.innerHTML = '<i class="fas fa-search"></i> Проверить куки';
             }
         }
-        
+
+        // Функция отображения результатов
         function displayResults(data) {
             const resultsDiv = document.getElementById('results');
             let html = `
                 <div class="stats">
-                    <h3>📊 Результаты проверки</h3>
-                    <p>✅ Валидных: <strong>${data.valid}</strong> | ❌ Невалидных: <strong>${data.invalid}</strong> | 📋 Всего: <strong>${data.total}</strong></p>
+                    <div class="stat-card">
+                        <div class="stat-value stat-total">${data.total}</div>
+                        <div>Всего проверено</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value stat-valid">${data.valid}</div>
+                        <div>Валидных</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value stat-invalid">${data.invalid}</div>
+                        <div>Невалидных</div>
+                    </div>
                 </div>
             `;
             
             data.results.forEach((result, index) => {
                 if (result.valid) {
                     html += `
-                        <div class="result valid">
-                            <strong>✅ Аккаунт #${index + 1} - Валидный</strong>
-                            <div class="cookie-info">
-                                <p>👤 <strong>Имя пользователя:</strong> ${result.username}</p>
-                                <p>🆔 <strong>User ID:</strong> ${result.user_id}</p>
-                                <p>💰 <strong>Robux:</strong> ${result.robux.toLocaleString()}</p>
-                                <p>⭐ <strong>Premium:</strong> ${result.premium ? '✅ Да' : '❌ Нет'}</p>
-                                <p>🔐 <strong>Кука:</strong> ${result.cookie}</p>
+                        <div class="result-item result-valid">
+                            <div class="result-header">
+                                <div class="result-title">
+                                    <i class="fas fa-check-circle"></i> Аккаунт #${index + 1} - ${result.username}
+                                </div>
+                                <span class="result-badge badge-valid">Валидный</span>
+                            </div>
+                            <div class="result-details">
+                                <div class="detail-item">
+                                    <i class="fas fa-user"></i>
+                                    <span><strong>Имя:</strong> ${result.display_name || result.username}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-id-card"></i>
+                                    <span><strong>ID:</strong> ${result.user_id}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-coins"></i>
+                                    <span><strong>Robux:</strong> ${result.robux?.toLocaleString() || 0}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-crown"></i>
+                                    <span><strong>Premium:</strong> ${result.premium ? '✅ Да' : '❌ Нет'}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-calendar"></i>
+                                    <span><strong>Создан:</strong> ${result.created_date || 'N/A'}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <i class="fas fa-shield-alt"></i>
+                                    <span><strong>Статус:</strong> ${result.ban_status || 'Активен'}</span>
+                                </div>
+                            </div>
+                            <div style="margin-top: 1rem; font-size: 0.8rem; opacity: 0.7;">
+                                <i class="fas fa-fingerprint"></i> Кука: ${result.cookie}
                             </div>
                         </div>
                     `;
                 } else {
                     html += `
-                        <div class="result invalid">
-                            <strong>❌ Кука #${index + 1} - Невалидная</strong>
-                            <div class="cookie-info">
-                                <p>🚫 <strong>Ошибка:</strong> ${result.error}</p>
-                                <p>🔐 <strong>Кука:</strong> ${result.cookie}</p>
+                        <div class="result-item result-invalid">
+                            <div class="result-header">
+                                <div class="result-title">
+                                    <i class="fas fa-times-circle"></i> Кука #${index + 1} - Невалидная
+                                </div>
+                                <span class="result-badge badge-invalid">Невалидный</span>
+                            </div>
+                            <p><strong>Ошибка:</strong> ${result.error}</p>
+                            <div style="margin-top: 1rem; font-size: 0.8rem; opacity: 0.7;">
+                                <i class="fas fa-fingerprint"></i> Кука: ${result.cookie}
                             </div>
                         </div>
                     `;
@@ -167,6 +571,42 @@ _cookie3_здесь_"></textarea>
             
             resultsDiv.innerHTML = html;
         }
+
+        // Вспомогательные функции
+        function clearInput() {
+            document.getElementById('cookiesInput').value = '';
+            document.getElementById('results').innerHTML = '';
+            showNotification('Поле очищено', 'info');
+        }
+
+        function showNotification(message, type = 'info') {
+            // Простая реализация уведомления
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 2rem;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 1000;
+                animation: slideInRight 0.3s ease;
+                background: ${type === 'error' ? 'var(--danger)' : type === 'success' ? 'var(--secondary)' : 'var(--primary)'};
+            `;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            createParticles();
+            console.log('Roblox Cookie Checker Pro loaded successfully!');
+        });
     </script>
 </body>
 </html>
