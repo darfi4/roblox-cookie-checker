@@ -17,9 +17,9 @@
         <header class="cyber-header">
             <div class="cyber-logo">
                 <i class="fas fa-robot"></i>
-                <span class="logo-text">NEON<span class="logo-accent">CHECK</span></span>
+                <span class="logo-text">КИРИЕШКА<span class="logo-accent">CHECK</span></span>
             </div>
-            <div class="cyber-subtitle">ROBLOX COOKIE VALIDATOR</div>
+            <div class="cyber-subtitle">ROBLOX COOKIE CHECKER</div>
         </header>
 
         <!-- Основной контент -->
@@ -30,7 +30,7 @@
                     <span class="title-gradient">COOKIE</span>
                     <span class="title-neon">CHECKER</span>
                 </h1>
-                <p class="cyber-description">Проверка Roblox куки в реальном времени с киберпанк стилем</p>
+                <p class="cyber-description">Быстрая и надёжная проверка печенья 🍪</p>
             </section>
 
             <!-- Карточка ввода -->
@@ -50,6 +50,15 @@
                             <i class="fas fa-file-import"></i> ФАЙЛ
                         </button>
                     </div>
+
+                    <nav class="cyber-nav">
+                        <a href="{{ url_for('index') }}" class="nav-link active">
+                            <i class="fas fa-home"></i> ГЛАВНАЯ
+                        </a>
+                        <a href="{{ url_for('history') }}" class="nav-link">
+                            <i class="fas fa-history"></i> ИСТОРИЯ
+                        </a>
+                    </nav>
 
                     <div class="tab-content active" id="text-tab">
                         <div class="input-group">
