@@ -3,7 +3,7 @@ import json
 import zipfile
 import io
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, send_file, flash
+from flask import Flask, render_template, request, jsonify, send_file
 import requests
 import time
 
@@ -56,59 +56,30 @@ class AdvancedRobloxChecker:
             )
             premium_data = premium_response.json() if premium_response.status_code == 200 else {}
             
-            # Получаем дополнительные данные
-            profile_response = self.session.get(
-                f'https://users.roblox.com/v1/users/{user_id}',
-                headers=headers,
-                timeout=5
-            )
-            profile_data = profile_response.json() if profile_response.status_code == 200 else {}
-            
-            # Получаем данные о группах
-            groups_response = self.session.get(
-                f'https://groups.roblox.com/v2/users/{user_id}/groups/roles',
-                headers=headers,
-                timeout=5
-            )
-            groups_data = groups_response.json() if groups_response.status_code == 200 else {}
-            
-            # Получаем данные о друзьях (для оценки активности)
-            friends_response = self.session.get(
-                f'https://friends.roblox.com/v1/users/{user_id}/friends/count',
-                headers=headers,
-                timeout=5
-            )
-            friends_data = friends_response.json() if friends_response.status_code == 200 else {}
-            
-            # Получаем данные об аватаре (оценка стоимости)
-            avatar_response = self.session.get(
-                f'https://avatar.roblox.com/v1/users/{user_id}/avatar',
-                headers=headers,
-                timeout=5
-            )
-            avatar_data = avatar_response.json() if avatar_response.status_code == 200 else {}
-            
-            # Получаем транзакции (оценка трат)
-            transactions_response = self.session.get(
-                f'https://economy.roblox.com/v1/users/{user_id}/transaction-totals?transactionType=Purchase',
-                headers=headers,
-                timeout=5
-            )
-            transactions_data = transactions_response.json() if transactions_response.status_code == 200 else {}
-
             # Расчет возраста аккаунта
-            created_date = datetime.fromisoformat(user_data['created'].replace('Z', '+00:00'))
-            account_age_days = (datetime.now() - created_date).days
-            account_age_years = account_age_days / 365.25
+            created_date_str = user_data.get('created', '')
+            if created_date_str:
+                try:
+                    created_date = datetime.fromisoformat(created_date_str.replace('Z', '+00:00'))
+                    account_age_days = (datetime.now() - created_date).days
+                    account_age_years = account_age_days / 365.25
+                    created_formatted = created_date.strftime('%Y-%m-%d')
+                except:
+                    created_date = datetime.now()
+                    account_age_days = 0
+                    account_age_years = 0
+                    created_formatted = 'Unknown'
+            else:
+                created_date = datetime.now()
+                account_age_days = 0
+                account_age_years = 0
+                created_formatted = 'Unknown'
 
             # Оценка стоимости аккаунта
             account_value = self.calculate_account_value(
                 economy_data.get('robux', 0),
                 premium_data.get('isPremium', False),
-                account_age_years,
-                len(groups_data.get('data', [])),
-                friends_data.get('count', 0),
-                transactions_data.get('purchaseTotal', 0)
+                account_age_years
             )
 
             return {
@@ -119,30 +90,22 @@ class AdvancedRobloxChecker:
                     'display_name': user_data.get('displayName', 'N/A'),
                     'user_id': user_id,
                     'profile_url': f'https://www.roblox.com/users/{user_id}/profile',
-                    'created_date': created_date.strftime('%Y-%m-%d'),
+                    'created_date': created_formatted,
                     'account_age_days': account_age_days,
                     'account_age_years': round(account_age_years, 1)
                 },
                 'economy': {
                     'robux_balance': economy_data.get('robux', 0),
                     'pending_robux': economy_data.get('pendingRobux', 0),
-                    'total_robux': economy_data.get('robux', 0) + economy_data.get('pendingRobux', 0),
-                    'all_time_spent': transactions_data.get('purchaseTotal', 0)
+                    'total_robux': economy_data.get('robux', 0) + economy_data.get('pendingRobux', 0)
                 },
                 'premium': {
                     'is_premium': premium_data.get('isPremium', False),
                     'status': 'Active' if premium_data.get('isPremium') else 'Inactive'
                 },
                 'security': {
-                    '2fa_enabled': self.check_2fa_status(headers),
-                    'phone_verified': self.check_phone_status(headers),
-                    'email_verified': True  # Предполагаем что email верифицирован
-                },
-                'social': {
-                    'friends_count': friends_data.get('count', 0),
-                    'groups_count': len(groups_data.get('data', [])),
-                    'followers_count': profile_data.get('followersCount', 0),
-                    'following_count': profile_data.get('followingsCount', 0)
+                    '2fa_enabled': False,  # Упрощаем проверку
+                    'phone_verified': False
                 },
                 'account_value': account_value,
                 'checked_at': datetime.now().isoformat()
@@ -151,37 +114,12 @@ class AdvancedRobloxChecker:
         except Exception as e:
             return self.error_result(cookie, f"Ошибка проверки: {str(e)}")
 
-    def calculate_account_value(self, robux, is_premium, age_years, groups_count, friends_count, total_spent):
+    def calculate_account_value(self, robux, is_premium, age_years):
         value = 0
-        value += robux * 0.003  # Примерная стоимость Robux
-        value += 1000 if is_premium else 0  # Стоимость Premium
-        value += age_years * 500  # Чем старше аккаунт, тем дороже
-        value += groups_count * 50  # Активность в группах
-        value += friends_count * 10  # Социальная активность
-        value += total_spent * 0.001  # Учитываем траты
-        return round(value, 2)
-
-    def check_2fa_status(self, headers):
-        try:
-            response = self.session.get(
-                'https://twostepverification.roblox.com/v1/metadata',
-                headers=headers,
-                timeout=5
-            )
-            return response.status_code == 200
-        except:
-            return False
-
-    def check_phone_status(self, headers):
-        try:
-            response = self.session.get(
-                'https://accountsettings.roblox.com/v1/phone',
-                headers=headers,
-                timeout=5
-            )
-            return response.status_code == 200
-        except:
-            return False
+        value += robux * 0.003
+        value += 1000 if is_premium else 0
+        value += age_years * 500
+        return round(max(value, 0), 2)
 
     def error_result(self, cookie: str, error: str):
         return {
@@ -197,9 +135,8 @@ class AdvancedRobloxChecker:
             if cookie.strip():
                 result = self.get_account_details(cookie.strip())
                 results.append(result)
-                # Добавляем задержку между запросами
                 if i < len(cookies) - 1:
-                    time.sleep(1)
+                    time.sleep(0.5)  # Уменьшаем задержку
         return results
 
 checker = AdvancedRobloxChecker()
@@ -258,7 +195,6 @@ def download_results(session_id):
         if not valid_cookies:
             return "Нет валидных куки для скачивания", 400
         
-        # Создаем ZIP архив
         zip_buffer = io.BytesIO()
         
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -267,16 +203,20 @@ def download_results(session_id):
             zip_file.writestr('КУКИ/Все проверенные куки.txt', all_cookies_content)
             
             # Папка Сортировка
-            self.create_sorted_files(zip_file, valid_cookies)
+            create_sorted_files(zip_file, valid_cookies)
             
             # Детальный отчет
-            detailed_report = self.create_detailed_report(results)
+            detailed_report = {
+                'check_date': datetime.now().isoformat(),
+                'summary': {
+                    'total_checked': len(results),
+                    'valid': len(valid_cookies),
+                    'invalid': len([r for r in results if not r['valid']])
+                },
+                'cookies': results
+            }
             zip_file.writestr('Детальный отчет.json', json.dumps(detailed_report, indent=2, ensure_ascii=False))
             
-            # README
-            readme_content = self.create_readme(results)
-            zip_file.writestr('README.txt', readme_content)
-        
         zip_buffer.seek(0)
         app.config.pop(f'session_{session_id}', None)
         
@@ -292,101 +232,44 @@ def download_results(session_id):
     except Exception as e:
         return f"Ошибка при создании архива: {str(e)}", 500
 
-    def create_sorted_files(self, zip_file, valid_cookies):
-        # Сортировка по балансу Robux
-        balance_categories = {
-            '0_robux': [r for r in valid_cookies if r['economy']['total_robux'] == 0],
-            '1-10_robux': [r for r in valid_cookies if 1 <= r['economy']['total_robux'] <= 10],
-            '10-25_robux': [r for r in valid_cookies if 10 < r['economy']['total_robux'] <= 25],
-            '25-50_robux': [r for r in valid_cookies if 25 < r['economy']['total_robux'] <= 50],
-            '50-100_robux': [r for r in valid_cookies if 50 < r['economy']['total_robux'] <= 100],
-            '100-500_robux': [r for r in valid_cookies if 100 < r['economy']['total_robux'] <= 500],
-            '500-1000_robux': [r for r in valid_cookies if 500 < r['economy']['total_robux'] <= 1000],
-            '1000+_robux': [r for r in valid_cookies if r['economy']['total_robux'] > 1000]
-        }
-        
-        for category, cookies in balance_categories.items():
-            if cookies:
-                content = "\n".join([r['cookie'] for r in cookies])
-                zip_file.writestr(f'Сортировка/По балансу/{category}.txt', content)
-        
-        # Сортировка по дате регистрации
-        year_categories = {
-            '2004-2010': [r for r in valid_cookies if 2004 <= int(r['account_info']['created_date'][:4]) <= 2010],
-            '2011-2015': [r for r in valid_cookies if 2011 <= int(r['account_info']['created_date'][:4]) <= 2015],
-            '2016-2019': [r for r in valid_cookies if 2016 <= int(r['account_info']['created_date'][:4]) <= 2019],
-            '2020-2022': [r for r in valid_cookies if 2020 <= int(r['account_info']['created_date'][:4]) <= 2022],
-            '2023-2024': [r for r in valid_cookies if 2023 <= int(r['account_info']['created_date'][:4]) <= 2024]
-        }
-        
-        for category, cookies in year_categories.items():
-            if cookies:
-                content = "\n".join([r['cookie'] for r in cookies])
-                zip_file.writestr(f'Сортировка/По дате регистрации/{category}.txt', content)
-        
-        # Сортировка по Premium статусу
-        premium_cookies = [r for r in valid_cookies if r['premium']['is_premium']]
-        non_premium_cookies = [r for r in valid_cookies if not r['premium']['is_premium']]
-        
-        if premium_cookies:
-            content = "\n".join([r['cookie'] for r in premium_cookies])
-            zip_file.writestr('Сортировка/По Premium/С Premium.txt', content)
-        
-        if non_premium_cookies:
-            content = "\n".join([r['cookie'] for r in non_premium_cookies])
-            zip_file.writestr('Сортировка/По Premium/Без Premium.txt', content)
-        
-        # Сортировка по стоимости аккаунта
-        value_categories = {
-            '0-10$': [r for r in valid_cookies if 0 <= r['account_value'] <= 10],
-            '10-25$': [r for r in valid_cookies if 10 < r['account_value'] <= 25],
-            '25-50$': [r for r in valid_cookies if 25 < r['account_value'] <= 50],
-            '50-100$': [r for r in valid_cookies if 50 < r['account_value'] <= 100],
-            '100-250$': [r for r in valid_cookies if 100 < r['account_value'] <= 250],
-            '250-500$': [r for r in valid_cookies if 250 < r['account_value'] <= 500],
-            '500+$': [r for r in valid_cookies if r['account_value'] > 500]
-        }
-        
-        for category, cookies in value_categories.items():
-            if cookies:
-                content = "\n".join([r['cookie'] for r in cookies])
-                zip_file.writestr(f'Сортировка/По стоимости/{category}.txt', content)
+def create_sorted_files(zip_file, valid_cookies):
+    # Сортировка по балансу Robux
+    balance_categories = {
+        '0_robux': [r for r in valid_cookies if r['economy']['total_robux'] == 0],
+        '1-10_robux': [r for r in valid_cookies if 1 <= r['economy']['total_robux'] <= 10],
+        '10-25_robux': [r for r in valid_cookies if 10 < r['economy']['total_robux'] <= 25],
+        '25-50_robux': [r for r in valid_cookies if 25 < r['economy']['total_robux'] <= 50],
+        '50-100_robux': [r for r in valid_cookies if 50 < r['economy']['total_robux'] <= 100],
+        '100-500_robux': [r for r in valid_cookies if 100 < r['economy']['total_robux'] <= 500],
+        '500-1000_robux': [r for r in valid_cookies if 500 < r['economy']['total_robux'] <= 1000],
+        '1000+_robux': [r for r in valid_cookies if r['economy']['total_robux'] > 1000]
+    }
+    
+    for category, cookies in balance_categories.items():
+        if cookies:
+            content = "\n".join([r['cookie'] for r in cookies])
+            zip_file.writestr(f'Сортировка/По балансу/{category}.txt', content)
+    
+    # Сортировка по дате регистрации
+    current_year = datetime.now().year
+    year_categories = {
+        '2004-2010': [r for r in valid_cookies if 2004 <= get_year(r['account_info']['created_date']) <= 2010],
+        '2011-2015': [r for r in valid_cookies if 2011 <= get_year(r['account_info']['created_date']) <= 2015],
+        '2016-2019': [r for r in valid_cookies if 2016 <= get_year(r['account_info']['created_date']) <= 2019],
+        '2020-2022': [r for r in valid_cookies if 2020 <= get_year(r['account_info']['created_date']) <= 2022],
+        '2023-now': [r for r in valid_cookies if 2023 <= get_year(r['account_info']['created_date']) <= current_year]
+    }
+    
+    for category, cookies in year_categories.items():
+        if cookies:
+            content = "\n".join([r['cookie'] for r in cookies])
+            zip_file.writestr(f'Сортировка/По дате регистрации/{category}.txt', content)
 
-    def create_detailed_report(self, results):
-        return {
-            'check_date': datetime.now().isoformat(),
-            'summary': {
-                'total_checked': len(results),
-                'valid': len([r for r in results if r['valid']]),
-                'invalid': len([r for r in results if not r['valid']])
-            },
-            'cookies': results
-        }
-
-    def create_readme(self, results):
-        valid_count = len([r for r in results if r['valid']])
-        return f"""Roblox Cookie Checker Pro - Результаты проверки
-
-Дата проверки: {datetime.now().strftime('%Y-%m-%d %H:%M')}
-Всего проверено: {len(results)}
-Валидных: {valid_count}
-Невалидных: {len(results) - valid_count}
-
-Структура архива:
-📁 КУКИ/
-  └── Все проверенные куки.txt - Все валидные куки в одном файле
-
-📁 Сортировка/
-  📁 По балансу/ - Сортировка по количеству Robux
-  📁 По дате регистрации/ - Сортировка по возрасту аккаунта  
-  📁 По Premium/ - Сортировка по наличию Premium подписки
-  📁 По стоимости/ - Сортировка по примерной стоимости аккаунта
-
-📄 Детальный отчет.json - Полная информация по всем куки
-📄 README.txt - Этот файл
-
-Каждая кука проверена через официальные API Roblox.
-"""
+def get_year(date_str):
+    try:
+        return int(date_str.split('-')[0])
+    except:
+        return 2024
 
 @app.route('/health')
 def health_check():

@@ -3,131 +3,126 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roblox Cookie Checker Pro</title>
+    <title>Neon Cookie Checker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div id="particles-js"></div>
-    <div class="gradient-bg"></div>
+    <!-- Неоновые частицы -->
+    <canvas id="particlesCanvas"></canvas>
     
-    <nav class="navbar">
-        <div class="nav-content">
-            <div class="logo">
-                <i class="fas fa-shield-alt"></i> RCC Pro
+    <!-- Главный контейнер -->
+    <div class="cyber-container">
+        <!-- Неоновый хедер -->
+        <header class="cyber-header">
+            <div class="cyber-logo">
+                <i class="fas fa-robot"></i>
+                <span class="logo-text">NEON<span class="logo-accent">CHECK</span></span>
             </div>
-        </div>
-    </nav>
+            <div class="cyber-subtitle">ROBLOX COOKIE VALIDATOR</div>
+        </header>
 
-    <div class="container">
-        <section class="hero fade-in">
-            <h1 class="hero-title">Roblox Cookie Checker Pro</h1>
-            <p class="hero-subtitle">Профессиональная проверка Roblox куки с детальной аналитикой</p>
-        </section>
+        <!-- Основной контент -->
+        <main class="cyber-main">
+            <!-- Герой секция -->
+            <section class="cyber-hero">
+                <h1 class="cyber-title">
+                    <span class="title-gradient">COOKIE</span>
+                    <span class="title-neon">CHECKER</span>
+                </h1>
+                <p class="cyber-description">Проверка Roblox куки в реальном времени с киберпанк стилем</p>
+            </section>
 
-        <div class="card-grid">
-            <div class="card">
-                <h2 class="card-title"><i class="fas fa-upload"></i> Проверить куки</h2>
+            <!-- Карточка ввода -->
+            <div class="cyber-card">
+                <div class="card-header">
+                    <i class="fas fa-terminal"></i>
+                    <h2>ВВОД ДАННЫХ</h2>
+                    <div class="pulse-dot"></div>
+                </div>
                 
-                <div class="tab-buttons">
-                    <button class="tab-button active" onclick="openTab('textTab')">
-                        <i class="fas fa-font"></i> Текстовый ввод
-                    </button>
-                    <button class="tab-button" onclick="openTab('fileTab')">
-                        <i class="fas fa-file-upload"></i> Загрузить файл
-                    </button>
-                </div>
-
-                <div id="textTab" class="tab-content active">
-                    <div class="form-group">
-                        <label class="form-label">Введите куки .ROBLOSECURITY (по одной на строку):</label>
-                        <textarea class="form-input textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_"></textarea>
-                        <div class="form-hint">Максимум: 50 куки за одну проверку</div>
+                <div class="input-section">
+                    <div class="tab-selector">
+                        <button class="tab-btn active" data-tab="text">
+                            <i class="fas fa-keyboard"></i> ТЕКСТ
+                        </button>
+                        <button class="tab-btn" data-tab="file">
+                            <i class="fas fa-file-import"></i> ФАЙЛ
+                        </button>
                     </div>
-                </div>
 
-                <div id="fileTab" class="tab-content">
-                    <div class="form-group">
-                        <label class="form-label">Загрузите файл с куки (.txt):</label>
-                        <div class="file-upload-area" id="fileUploadArea">
-                            <i class="fas fa-cloud-upload-alt"></i>
-                            <p>Перетащите файл сюда или нажмите для выбора</p>
-                            <input type="file" id="fileInput" accept=".txt" style="display: none;">
+                    <div class="tab-content active" id="text-tab">
+                        <div class="input-group">
+                            <label class="cyber-label">
+                                <i class="fas fa-cookie-bite"></i> .ROBLOSECURITY COOKIES
+                            </label>
+                            <textarea class="cyber-textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_"></textarea>
+                            <div class="input-hint">Максимум: 50 куки за проверку • Одна кука на строку</div>
                         </div>
-                        <div class="form-hint">Файл должен содержать по одной куке на каждой строке</div>
                     </div>
-                </div>
-                
-                <button class="btn btn-large" onclick="checkCookies()" id="checkButton">
-                    <i class="fas fa-search"></i> Начать проверку
-                </button>
-            </div>
 
-            <div class="card">
-                <h2 class="card-title"><i class="fas fa-info-circle"></i> Информация</h2>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <i class="fas fa-shield-check"></i>
-                        <span>Безопасная проверка через официальные API</span>
+                    <div class="tab-content" id="file-tab">
+                        <div class="file-upload-zone" id="fileUploadZone">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>ПЕРЕТАЩИТЕ .TXT ФАЙЛ СЮДА</p>
+                            <span class="file-hint">или нажмите для выбора</span>
+                            <input type="file" id="fileInput" accept=".txt" hidden>
+                        </div>
                     </div>
-                    <div class="info-item">
-                        <i class="fas fa-chart-bar"></i>
-                        <span>Детальная аналитика каждого аккаунта</span>
-                    </div>
-                    <div class="info-item">
-                        <i class="fas fa-sort-amount-down"></i>
-                        <span>Автоматическая сортировка по категориям</span>
-                    </div>
-                    <div class="info-item">
-                        <i class="fas fa-download"></i>
-                        <span>Скачивание в удобном формате</span>
-                    </div>
+
+                    <button class="cyber-button large" id="checkButton" onclick="checkCookies()">
+                        <span class="btn-content">
+                            <i class="fas fa-play"></i>
+                            ЗАПУСТИТЬ ПРОВЕРКУ
+                        </span>
+                        <div class="btn-glow"></div>
+                    </button>
                 </div>
             </div>
-        </div>
 
-        <div id="results"></div>
+            <!-- Результаты -->
+            <div id="resultsContainer"></div>
+        </main>
     </div>
 
-    <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
     <script>
+        // Переменные состояния
         let currentSessionId = null;
         let currentResults = [];
 
-        function openTab(tabName) {
-            // Скрываем все табы
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
+        // Инициализация табов
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const tab = e.target.dataset.tab;
+                
+                // Обновляем активные табы
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                e.target.classList.add('active');
+                document.getElementById(`${tab}-tab`).classList.add('active');
             });
-            document.querySelectorAll('.tab-button').forEach(button => {
-                button.classList.remove('active');
-            });
-            
-            // Показываем выбранный таб
-            document.getElementById(tabName).classList.add('active');
-            event.currentTarget.classList.add('active');
-        }
+        });
 
-        // Обработка drag and drop для файлов
-        const fileUploadArea = document.getElementById('fileUploadArea');
+        // Обработка файлов
+        const fileZone = document.getElementById('fileUploadZone');
         const fileInput = document.getElementById('fileInput');
 
-        fileUploadArea.addEventListener('click', () => fileInput.click());
+        fileZone.addEventListener('click', () => fileInput.click());
         
-        fileUploadArea.addEventListener('dragover', (e) => {
+        fileZone.addEventListener('dragover', (e) => {
             e.preventDefault();
-            fileUploadArea.classList.add('dragover');
+            fileZone.classList.add('dragover');
         });
         
-        fileUploadArea.addEventListener('dragleave', () => {
-            fileUploadArea.classList.remove('dragover');
+        fileZone.addEventListener('dragleave', () => {
+            fileZone.classList.remove('dragover');
         });
         
-        fileUploadArea.addEventListener('drop', (e) => {
+        fileZone.addEventListener('drop', (e) => {
             e.preventDefault();
-            fileUploadArea.classList.remove('dragover');
+            fileZone.classList.remove('dragover');
             if (e.dataTransfer.files.length) {
-                fileInput.files = e.dataTransfer.files;
                 handleFileSelect(e.dataTransfer.files[0]);
             }
         });
@@ -140,34 +135,45 @@
 
         function handleFileSelect(file) {
             if (file.type !== 'text/plain' && !file.name.endsWith('.txt')) {
-                showNotification('Пожалуйста, выберите текстовый файл (.txt)', 'error');
+                showNotification('Только .txt файлы поддерживаются', 'error');
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('cookiesInput').value = e.target.result;
-                openTab('textTab');
+                // Переключаем на текстовую вкладку
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.querySelector('[data-tab="text"]').classList.add('active');
+                document.getElementById('text-tab').classList.add('active');
+                
                 showNotification('Файл успешно загружен', 'success');
             };
             reader.readAsText(file);
         }
 
+        // Основная функция проверки
         async function checkCookies() {
             const input = document.getElementById('cookiesInput').value;
-            const resultsDiv = document.getElementById('results');
             const button = document.getElementById('checkButton');
             
             if (!input.trim()) {
-                showNotification('Пожалуйста, введите куки для проверки', 'error');
+                showNotification('Введите куки для проверки', 'error');
                 return;
             }
             
+            const cookies = input.split('\n').filter(c => c.trim());
+            if (cookies.length > 50) {
+                showNotification('Максимум 50 куки за раз', 'error');
+                return;
+            }
+
+            // Блокируем кнопку
             button.disabled = true;
-            button.innerHTML = '<div class="loading"></div> Проверяем куки...';
-            
+            button.querySelector('.btn-content').innerHTML = '<i class="fas fa-spinner fa-spin"></i> ПРОВЕРКА...';
+
             try {
-                const cookies = input.split('\n').filter(c => c.trim());
                 const response = await fetch('/check', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
@@ -180,72 +186,73 @@
                     currentResults = data.results;
                     currentSessionId = data.session_id;
                     displayResults(data);
-                    showNotification(`Проверка завершена! Валидных: ${data.valid}, Невалидных: ${data.invalid}`, 'success');
+                    showNotification(`Проверено: ${data.valid} валидных, ${data.invalid} невалидных`, 'success');
                 } else {
                     throw new Error(data.error || 'Ошибка сервера');
                 }
                 
             } catch (error) {
-                showNotification('Ошибка при проверке куки: ' + error.message, 'error');
+                showNotification('Ошибка: ' + error.message, 'error');
             } finally {
+                // Разблокируем кнопку
                 button.disabled = false;
-                button.innerHTML = '<i class="fas fa-search"></i> Начать проверку';
+                button.querySelector('.btn-content').innerHTML = '<i class="fas fa-play"></i> ЗАПУСТИТЬ ПРОВЕРКУ';
             }
         }
 
+        // Отображение результатов
         function displayResults(data) {
-            const resultsDiv = document.getElementById('results');
+            const container = document.getElementById('resultsContainer');
             const validResults = data.results.filter(r => r.valid);
             
             let html = `
-                <div class="results-header">
+                <div class="results-summary">
                     <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value stat-total">${data.total}</div>
-                            <div>Всего проверено</div>
+                        <div class="cyber-stat">
+                            <div class="stat-value">${data.total}</div>
+                            <div class="stat-label">ВСЕГО</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value stat-valid">${data.valid}</div>
-                            <div>Валидных</div>
+                        <div class="cyber-stat valid">
+                            <div class="stat-value">${data.valid}</div>
+                            <div class="stat-label">ВАЛИДНЫХ</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-value stat-invalid">${data.invalid}</div>
-                            <div>Невалидных</div>
+                        <div class="cyber-stat invalid">
+                            <div class="stat-value">${data.invalid}</div>
+                            <div class="stat-label">НЕВАЛИДНЫХ</div>
                         </div>
                     </div>
                     
                     ${validResults.length > 0 ? `
                     <div class="download-section">
-                        <button class="btn btn-success btn-large" onclick="downloadResults()">
-                            <i class="fas fa-download"></i> Скачать проверенные куки
+                        <button class="cyber-button success large" onclick="downloadResults()">
+                            <i class="fas fa-download"></i>
+                            СКАЧАТЬ АРХИВ (${validResults.length} куки)
                         </button>
-                        <div class="download-info">
-                            Архив будет содержать ${validResults.length} валидных куки, отсортированных по категориям
-                        </div>
                     </div>
                     ` : ''}
                 </div>
             `;
             
-            // Отображаем детальную информацию по валидным куки
+            // Детальная информация по валидным аккаунтам
             validResults.forEach((result, index) => {
                 html += createAccountCard(result, index + 1);
             });
             
-            // Показываем невалидные куки свернуто
+            // Невалидные куки (свернуто)
             const invalidResults = data.results.filter(r => !r.valid);
             if (invalidResults.length > 0) {
                 html += `
-                    <div class="card">
-                        <div class="invalid-header" onclick="toggleInvalidResults()">
-                            <h3><i class="fas fa-times-circle"></i> Невалидные куки (${invalidResults.length})</h3>
-                            <i class="fas fa-chevron-down" id="invalidToggleIcon"></i>
+                    <div class="cyber-card error">
+                        <div class="card-header" onclick="toggleInvalidResults()">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <h2>НЕВАЛИДНЫЕ КУКИ (${invalidResults.length})</h2>
+                            <i class="fas fa-chevron-down" id="invalidToggle"></i>
                         </div>
-                        <div class="invalid-content" id="invalidResults" style="display: none;">
+                        <div class="invalid-list" id="invalidResults" style="display: none;">
                             ${invalidResults.map(result => `
                                 <div class="invalid-item">
-                                    <div class="cookie-preview">${result.cookie.substring(0, 50)}...</div>
-                                    <div class="error-message">${result.error}</div>
+                                    <code>${result.cookie.substring(0, 60)}...</code>
+                                    <span class="error-text">${result.error}</span>
                                 </div>
                             `).join('')}
                         </div>
@@ -253,74 +260,79 @@
                 `;
             }
             
-            resultsDiv.innerHTML = html;
+            container.innerHTML = html;
         }
 
+        // Создание карточки аккаунта
         function createAccountCard(result, index) {
             const acc = result.account_info;
             const eco = result.economy;
             const prem = result.premium;
-            const sec = result.security;
             
             return `
-                <div class="account-card fade-in">
+                <div class="cyber-card account-card">
                     <div class="account-header">
-                        <div class="account-badge">#${index}</div>
-                        <h3>${acc.username}</h3>
+                        <div class="account-index">#${index}</div>
+                        <div class="account-main">
+                            <h3 class="username">${acc.username}</h3>
+                            <a href="${acc.profile_url}" target="_blank" class="profile-link">
+                                <i class="fas fa-external-link-alt"></i> Профиль
+                            </a>
+                        </div>
                         <div class="account-value">$${result.account_value}</div>
                     </div>
                     
                     <div class="account-grid">
-                        <div class="account-section">
-                            <h4><i class="fas fa-user"></i> Основная информация</h4>
+                        <div class="info-group">
+                            <h4><i class="fas fa-id-card"></i> ИНФОРМАЦИЯ</h4>
                             <div class="info-row">
                                 <span>ID:</span>
-                                <span>${acc.user_id}</span>
-                            </div>
-                            <div class="info-row">
-                                <span>Профиль:</span>
-                                <a href="${acc.profile_url}" target="_blank">Открыть</a>
+                                <span class="mono">${acc.user_id}</span>
                             </div>
                             <div class="info-row">
                                 <span>Дата регистрации:</span>
-                                <span>${acc.created_date} (${acc.account_age_years} лет)</span>
+                                <span>${acc.created_date}</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Возраст аккаунта:</span>
+                                <span>${acc.account_age_years} лет</span>
                             </div>
                         </div>
                         
-                        <div class="account-section">
-                            <h4><i class="fas fa-coins"></i> Экономика</h4>
+                        <div class="info-group">
+                            <h4><i class="fas fa-coins"></i> ЭКОНОМИКА</h4>
                             <div class="info-row">
                                 <span>Баланс Robux:</span>
-                                <span class="robux-value">${eco.robux_balance.toLocaleString()}</span>
+                                <span class="robux">${eco.robux_balance.toLocaleString()}</span>
                             </div>
                             <div class="info-row">
                                 <span>Pending Robux:</span>
                                 <span>${eco.pending_robux.toLocaleString()}</span>
                             </div>
                             <div class="info-row">
-                                <span>Всего трат:</span>
-                                <span>${eco.all_time_spent.toLocaleString()} R$</span>
+                                <span>Всего Robux:</span>
+                                <span class="total-robux">${eco.total_robux.toLocaleString()}</span>
                             </div>
                         </div>
                         
-                        <div class="account-section">
-                            <h4><i class="fas fa-shield-alt"></i> Безопасность</h4>
+                        <div class="info-group">
+                            <h4><i class="fas fa-shield-alt"></i> СТАТУС</h4>
                             <div class="info-row">
                                 <span>Premium:</span>
-                                <span class="${prem.is_premium ? 'status-success' : 'status-error'}">
-                                    ${prem.is_premium ? '✅ Активно' : '❌ Неактивно'}
+                                <span class="status ${prem.is_premium ? 'success' : 'error'}">
+                                    ${prem.is_premium ? 'АКТИВНО' : 'НЕАКТИВНО'}
                                 </span>
                             </div>
                             <div class="info-row">
                                 <span>2FA:</span>
-                                <span class="${sec['2fa_enabled'] ? 'status-success' : 'status-error'}">
-                                    ${sec['2fa_enabled'] ? '✅ Включена' : '❌ Выключена'}
+                                <span class="status ${result.security['2fa_enabled'] ? 'success' : 'error'}">
+                                    ${result.security['2fa_enabled'] ? 'ВКЛ' : 'ВЫКЛ'}
                                 </span>
                             </div>
                             <div class="info-row">
                                 <span>Телефон:</span>
-                                <span class="${sec.phone_verified ? 'status-success' : 'status-error'}">
-                                    ${sec.phone_verified ? '✅ Привязан' : '❌ Не привязан'}
+                                <span class="status ${result.security.phone_verified ? 'success' : 'error'}">
+                                    ${result.security.phone_verified ? 'ПРИВЯЗАН' : 'НЕТ'}
                                 </span>
                             </div>
                         </div>
@@ -329,79 +341,135 @@
             `;
         }
 
+        // Скачивание результатов
         function downloadResults() {
-            if (!currentSessionId) {
-                showNotification('Нет данных для скачивания', 'error');
-                return;
-            }
-            
+            if (!currentSessionId) return;
             window.open(`/download/${currentSessionId}`, '_blank');
             showNotification('Архив скачивается...', 'success');
         }
 
+        // Вспомогательные функции
         function toggleInvalidResults() {
             const content = document.getElementById('invalidResults');
-            const icon = document.getElementById('invalidToggleIcon');
+            const toggle = document.getElementById('invalidToggle');
             
             if (content.style.display === 'none') {
                 content.style.display = 'block';
-                icon.classList.remove('fa-chevron-down');
-                icon.classList.add('fa-chevron-up');
+                toggle.classList.replace('fa-chevron-down', 'fa-chevron-up');
             } else {
                 content.style.display = 'none';
-                icon.classList.remove('fa-chevron-up');
-                icon.classList.add('fa-chevron-down');
+                toggle.classList.replace('fa-chevron-up', 'fa-chevron-down');
             }
         }
 
-        function showNotification(message, type = 'info') {
-            // Создаем уведомление
+        function showNotification(message, type) {
+            // Простая реализация уведомлений
             const notification = document.createElement('div');
-            notification.className = `notification ${type}`;
+            notification.className = `cyber-notification ${type}`;
             notification.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info'}-circle"></i>
+                <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i>
                 ${message}
             `;
             
             document.body.appendChild(notification);
             
-            // Анимация появления
-            setTimeout(() => notification.classList.add('show'), 100);
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
             
-            // Автоматическое скрытие
             setTimeout(() => {
                 notification.classList.remove('show');
                 setTimeout(() => notification.remove(), 300);
             }, 4000);
         }
 
-        // Стили для уведомлений
-        const style = document.createElement('style');
-        style.textContent = `
-            .notification {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 1rem 1.5rem;
-                border-radius: 10px;
-                color: white;
-                font-weight: 600;
-                z-index: 1000;
-                transform: translateX(100%);
-                transition: transform 0.3s ease;
-                backdrop-filter: blur(20px);
-                border: 1px solid rgba(255,255,255,0.2);
+        // Частицы
+        function initParticles() {
+            const canvas = document.getElementById('particlesCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            function resizeCanvas() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
             }
             
-            .notification.show {
-                transform: translateX(0);
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            const particles = [];
+            const mouse = { x: 0, y: 0 };
+            
+            class Particle {
+                constructor() {
+                    this.x = Math.random() * canvas.width;
+                    this.y = Math.random() * canvas.height;
+                    this.size = Math.random() * 2 + 0.5;
+                    this.speedX = Math.random() * 0.5 - 0.25;
+                    this.speedY = Math.random() * 0.5 - 0.25;
+                    this.color = `hsl(${Math.random() * 60 + 260}, 70%, 60%)`;
+                }
+                
+                update() {
+                    this.x += this.speedX;
+                    this.y += this.speedY;
+                    
+                    // Отталкивание от курсора
+                    const dx = mouse.x - this.x;
+                    const dy = mouse.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 100) {
+                        this.x -= dx / distance * 0.5;
+                        this.y -= dy / distance * 0.5;
+                    }
+                    
+                    if (this.x < 0 || this.x > canvas.width) this.speedX *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.speedY *= -1;
+                }
+                
+                draw() {
+                    ctx.fillStyle = this.color;
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Свечение
+                    ctx.shadowBlur = 15;
+                    ctx.shadowColor = this.color;
+                }
             }
             
-            .notification.success { background: rgba(16, 185, 129, 0.9); }
-            .notification.error { background: rgba(239, 68, 68, 0.9); }
-            .notification.info { background: rgba(59, 130, 246, 0.9); }
-        `;
-        document.head.appendChild(style);
+            function createParticles() {
+                for (let i = 0; i < 80; i++) {
+                    particles.push(new Particle());
+                }
+            }
+            
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.shadowBlur = 0;
+                
+                particles.forEach(particle => {
+                    particle.update();
+                    particle.draw();
+                });
+                
+                requestAnimationFrame(animate);
+            }
+            
+            canvas.addEventListener('mousemove', (e) => {
+                mouse.x = e.clientX;
+                mouse.y = e.clientY;
+            });
+            
+            createParticles();
+            animate();
+        }
+
+        // Инициализация при загрузке
+        document.addEventListener('DOMContentLoaded', () => {
+            initParticles();
+        });
     </script>
 </body>
 </html>

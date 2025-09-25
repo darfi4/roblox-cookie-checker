@@ -1,25 +1,193 @@
-/* Добавьте эти стили в существующий CSS */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
 
-.tab-buttons {
+:root {
+    --neon-purple: #8b5cf6;
+    --neon-pink: #ec4899;
+    --neon-cyan: #06b6d4;
+    --dark-bg: #0f0f23;
+    --darker-bg: #0a0a1a;
+    --card-bg: rgba(19, 19, 54, 0.8);
+    --card-border: rgba(139, 92, 246, 0.3);
+    --text-primary: #ffffff;
+    --text-secondary: #a0a0c0;
+    --success: #10b981;
+    --error: #ef4444;
+    --warning: #f59e0b;
+}
+
+body {
+    font-family: 'Courier New', monospace;
+    background: var(--dark-bg);
+    color: var(--text-primary);
+    overflow-x: hidden;
+    min-height: 100vh;
+}
+
+#particlesCanvas {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+}
+
+.cyber-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
+    position: relative;
+    z-index: 1;
+}
+
+/* Хедер */
+.cyber-header {
+    text-align: center;
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--card-border);
+    margin-bottom: 2rem;
+}
+
+.cyber-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 2.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.cyber-logo i {
+    color: var(--neon-purple);
+    text-shadow: 0 0 10px var(--neon-purple);
+}
+
+.logo-text {
+    font-weight: bold;
+    background: linear-gradient(45deg, var(--neon-purple), var(--neon-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.logo-accent {
+    color: var(--neon-cyan);
+    -webkit-text-fill-color: var(--neon-cyan);
+}
+
+.cyber-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
+/* Герой секция */
+.cyber-hero {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.cyber-title {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    line-height: 1.2;
+}
+
+.title-gradient {
+    background: linear-gradient(45deg, var(--neon-purple), var(--neon-pink));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.title-neon {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 10px var(--neon-cyan);
+}
+
+.cyber-description {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* Карточки */
+.cyber-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    backdrop-filter: blur(10px);
+    position: relative;
+}
+
+.cyber-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--neon-purple), transparent);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.card-header h2 {
+    color: var(--neon-cyan);
+    font-size: 1.2rem;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--neon-pink);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/* Табы */
+.tab-selector {
     display: flex;
     gap: 1rem;
     margin-bottom: 1.5rem;
 }
 
-.tab-button {
+.tab-btn {
     flex: 1;
     padding: 1rem;
-    background: var(--glass-dark);
-    border: 1px solid var(--glass-border);
-    border-radius: 10px;
-    color: var(--light);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--card-border);
+    border-radius: 5px;
+    color: var(--text-secondary);
     cursor: pointer;
     transition: all 0.3s ease;
+    font-family: inherit;
 }
 
-.tab-button.active {
-    background: var(--primary);
-    border-color: var(--primary);
+.tab-btn.active {
+    background: var(--neon-purple);
+    border-color: var(--neon-purple);
+    color: white;
 }
 
 .tab-content {
@@ -30,72 +198,177 @@
     display: block;
 }
 
-.file-upload-area {
-    border: 2px dashed var(--glass-border);
-    border-radius: 10px;
-    padding: 2rem;
+/* Формы */
+.input-group {
+    margin-bottom: 1.5rem;
+}
+
+.cyber-label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: var(--neon-cyan);
+    font-weight: bold;
+}
+
+.cyber-textarea {
+    width: 100%;
+    min-height: 150px;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--card-border);
+    border-radius: 5px;
+    color: var(--text-primary);
+    font-family: 'Courier New', monospace;
+    resize: vertical;
+    transition: all 0.3s ease;
+}
+
+.cyber-textarea:focus {
+    outline: none;
+    border-color: var(--neon-purple);
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+.input-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-top: 0.5rem;
+}
+
+/* Загрузка файлов */
+.file-upload-zone {
+    border: 2px dashed var(--card-border);
+    border-radius: 5px;
+    padding: 3rem 2rem;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
 }
 
-.file-upload-area:hover,
-.file-upload-area.dragover {
-    border-color: var(--primary);
-    background: var(--glass-dark);
+.file-upload-zone:hover,
+.file-upload-zone.dragover {
+    border-color: var(--neon-purple);
+    background: rgba(139, 92, 246, 0.1);
 }
 
-.file-upload-area i {
+.file-upload-zone i {
     font-size: 3rem;
-    color: var(--primary);
+    color: var(--neon-purple);
     margin-bottom: 1rem;
 }
 
-.info-grid {
-    display: grid;
-    gap: 1rem;
+.file-hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
 }
 
-.info-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    background: var(--glass-dark);
-    border-radius: 10px;
+/* Кнопки */
+.cyber-button {
+    position: relative;
+    background: linear-gradient(45deg, var(--neon-purple), var(--neon-pink));
+    border: none;
+    padding: 1rem 2rem;
+    border-radius: 5px;
+    color: white;
+    font-family: inherit;
+    font-weight: bold;
+    cursor: pointer;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-.info-item i {
-    color: var(--primary);
-    font-size: 1.2rem;
+.cyber-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
 }
 
-.results-header {
+.cyber-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.cyber-button.large {
+    padding: 1.2rem 2.5rem;
+    font-size: 1.1rem;
+}
+
+.cyber-button.success {
+    background: linear-gradient(45deg, var(--success), var(--neon-cyan));
+}
+
+.btn-glow {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    transition: left 0.5s;
+}
+
+.cyber-button:hover .btn-glow {
+    left: 100%;
+}
+
+/* Результаты */
+.results-summary {
     margin-bottom: 2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.cyber-stat {
+    text-align: center;
+    padding: 1.5rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 5px;
+}
+
+.cyber-stat.valid {
+    border-color: var(--success);
+}
+
+.cyber-stat.invalid {
+    border-color: var(--error);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.cyber-stat.valid .stat-value {
+    color: var(--success);
+}
+
+.cyber-stat.invalid .stat-value {
+    color: var(--error);
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .download-section {
     text-align: center;
-    margin-top: 2rem;
-    padding: 2rem;
-    background: var(--glass-dark);
-    border-radius: 15px;
-    border: 2px dashed var(--secondary);
 }
 
-.download-info {
-    margin-top: 1rem;
-    opacity: 0.8;
-    font-size: 0.9rem;
-}
-
+/* Карточки аккаунтов */
 .account-card {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: 15px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    backdrop-filter: blur(20px);
+    border-left: 3px solid var(--neon-purple);
 }
 
 .account-header {
@@ -103,36 +376,53 @@
     align-items: center;
     gap: 1rem;
     margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--glass-border);
 }
 
-.account-badge {
-    background: var(--primary);
+.account-index {
+    background: var(--neon-purple);
     color: white;
     padding: 0.5rem 1rem;
     border-radius: 20px;
     font-weight: bold;
 }
 
+.account-main {
+    flex: 1;
+}
+
+.username {
+    color: var(--neon-cyan);
+    margin-bottom: 0.5rem;
+}
+
+.profile-link {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 0.8rem;
+}
+
+.profile-link:hover {
+    color: var(--neon-purple);
+}
+
 .account-value {
-    margin-left: auto;
     background: gold;
     color: black;
     padding: 0.5rem 1rem;
-    border-radius: 10px;
+    border-radius: 5px;
     font-weight: bold;
 }
 
 .account-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 1.5rem;
 }
 
-.account-section h4 {
+.info-group h4 {
+    color: var(--neon-purple);
     margin-bottom: 1rem;
-    color: var(--primary);
+    font-size: 0.9rem;
 }
 
 .info-row {
@@ -142,73 +432,87 @@
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.robux-value {
-    color: #00ff00;
+.mono {
+    font-family: 'Courier New', monospace;
+}
+
+.robux, .total-robux {
+    color: var(--success);
     font-weight: bold;
 }
 
-.status-success {
-    color: #00ff00;
+.status.success {
+    color: var(--success);
 }
 
-.status-error {
-    color: #ff4444;
+.status.error {
+    color: var(--error);
 }
 
-.invalid-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    padding: 1rem;
-}
-
-.invalid-content {
-    margin-top: 1rem;
-}
-
-.invalid-item {
-    padding: 1rem;
-    background: rgba(239, 68, 68, 0.1);
-    border-left: 4px solid var(--danger);
-    margin-bottom: 0.5rem;
+/* Уведомления */
+.cyber-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 1rem 1.5rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: 5px;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    z-index: 1000;
 }
 
-.cookie-preview {
-    font-family: monospace;
-    font-size: 0.8rem;
-    opacity: 0.8;
+.cyber-notification.show {
+    transform: translateX(0);
 }
 
-.error-message {
-    color: var(--danger);
-    font-weight: bold;
+.cyber-notification.success {
+    border-color: var(--success);
 }
 
-.btn-large {
-    padding: 1.2rem 2rem;
-    font-size: 1.1rem;
+.cyber-notification.error {
+    border-color: var(--error);
 }
 
-.form-hint {
-    font-size: 0.8rem;
-    opacity: 0.7;
-    margin-top: 0.5rem;
-}
-
-/* Анимации */
-.fade-in {
-    animation: fadeInUp 0.6s ease;
-}
-
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(30px);
+/* Адаптивность */
+@media (max-width: 768px) {
+    .cyber-container {
+        padding: 0.5rem;
     }
-    to {
-        opacity: 1;
-        transform: translateY(0);
+    
+    .cyber-title {
+        font-size: 2.5rem;
+    }
+    
+    .cyber-logo {
+        font-size: 2rem;
+    }
+    
+    .tab-selector {
+        flex-direction: column;
+    }
+    
+    .account-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .cyber-title {
+        font-size: 2rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .cyber-button.large {
+        padding: 1rem 1.5rem;
+        font-size: 1rem;
     }
 }
