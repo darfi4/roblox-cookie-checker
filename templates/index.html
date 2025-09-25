@@ -22,51 +22,136 @@
     <div class="container">
         <section class="hero fade-in">
             <h1 class="hero-title">Roblox Cookie Checker Pro</h1>
-            <p class="hero-subtitle">Проверка и сортировка Roblox куки</p>
+            <p class="hero-subtitle">Профессиональная проверка Roblox куки с детальной аналитикой</p>
         </section>
 
-        <div class="card">
-            <h2 class="card-title"><i class="fas fa-search"></i> Проверка куки</h2>
-            
-            <div class="form-group">
-                <label class="form-label">Введите куки .ROBLOSECURITY (по одной на строку):</label>
-                <textarea class="form-input textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_
-_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_"></textarea>
-                <div style="font-size: 0.8rem; opacity: 0.7; margin-top: 0.5rem;">
-                    Максимум: 100 куки за одну проверку
+        <div class="card-grid">
+            <div class="card">
+                <h2 class="card-title"><i class="fas fa-upload"></i> Проверить куки</h2>
+                
+                <div class="tab-buttons">
+                    <button class="tab-button active" onclick="openTab('textTab')">
+                        <i class="fas fa-font"></i> Текстовый ввод
+                    </button>
+                    <button class="tab-button" onclick="openTab('fileTab')">
+                        <i class="fas fa-file-upload"></i> Загрузить файл
+                    </button>
+                </div>
+
+                <div id="textTab" class="tab-content active">
+                    <div class="form-group">
+                        <label class="form-label">Введите куки .ROBLOSECURITY (по одной на строку):</label>
+                        <textarea class="form-input textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_"></textarea>
+                        <div class="form-hint">Максимум: 50 куки за одну проверку</div>
+                    </div>
+                </div>
+
+                <div id="fileTab" class="tab-content">
+                    <div class="form-group">
+                        <label class="form-label">Загрузите файл с куки (.txt):</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>Перетащите файл сюда или нажмите для выбора</p>
+                            <input type="file" id="fileInput" accept=".txt" style="display: none;">
+                        </div>
+                        <div class="form-hint">Файл должен содержать по одной куке на каждой строке</div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-large" onclick="checkCookies()" id="checkButton">
+                    <i class="fas fa-search"></i> Начать проверку
+                </button>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title"><i class="fas fa-info-circle"></i> Информация</h2>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <i class="fas fa-shield-check"></i>
+                        <span>Безопасная проверка через официальные API</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-chart-bar"></i>
+                        <span>Детальная аналитика каждого аккаунта</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-sort-amount-down"></i>
+                        <span>Автоматическая сортировка по категориям</span>
+                    </div>
+                    <div class="info-item">
+                        <i class="fas fa-download"></i>
+                        <span>Скачивание в удобном формате</span>
+                    </div>
                 </div>
             </div>
-            
-            <button class="btn" onclick="checkCookies()" id="checkButton">
-                <i class="fas fa-search"></i> Проверить куки
-            </button>
-            <button class="btn btn-danger" onclick="clearInput()" style="margin-left: 1rem;">
-                <i class="fas fa-trash"></i> Очистить
-            </button>
         </div>
 
         <div id="results"></div>
     </div>
 
-    <!-- Модальное окно для скачивания -->
-    <div id="downloadModal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <h3><i class="fas fa-download"></i> Скачать результаты</h3>
-            <p>Хотите скачать архив с проверенными куки, отсортированными по категориям?</p>
-            <div class="modal-actions">
-                <button class="btn btn-success" onclick="downloadArchive()">
-                    <i class="fas fa-download"></i> Скачать архив
-                </button>
-                <button class="btn btn-danger" onclick="closeModal()">
-                    <i class="fas fa-times"></i> Отказаться
-                </button>
-            </div>
-        </div>
-    </div>
-
     <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
     <script>
         let currentSessionId = null;
+        let currentResults = [];
+
+        function openTab(tabName) {
+            // Скрываем все табы
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Показываем выбранный таб
+            document.getElementById(tabName).classList.add('active');
+            event.currentTarget.classList.add('active');
+        }
+
+        // Обработка drag and drop для файлов
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        fileUploadArea.addEventListener('click', () => fileInput.click());
+        
+        fileUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+        
+        fileUploadArea.addEventListener('dragleave', () => {
+            fileUploadArea.classList.remove('dragover');
+        });
+        
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                handleFileSelect(e.dataTransfer.files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            if (file.type !== 'text/plain' && !file.name.endsWith('.txt')) {
+                showNotification('Пожалуйста, выберите текстовый файл (.txt)', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('cookiesInput').value = e.target.result;
+                openTab('textTab');
+                showNotification('Файл успешно загружен', 'success');
+            };
+            reader.readAsText(file);
+        }
 
         async function checkCookies() {
             const input = document.getElementById('cookiesInput').value;
@@ -79,7 +164,7 @@ _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your
             }
             
             button.disabled = true;
-            button.innerHTML = '<div class="loading"></div> Проверяем...';
+            button.innerHTML = '<div class="loading"></div> Проверяем куки...';
             
             try {
                 const cookies = input.split('\n').filter(c => c.trim());
@@ -92,12 +177,10 @@ _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your
                 const data = await response.json();
                 
                 if (response.ok) {
-                    displayResults(data);
+                    currentResults = data.results;
                     currentSessionId = data.session_id;
-                    // Показываем модальное окно через 2 секунды
-                    setTimeout(() => {
-                        showDownloadModal();
-                    }, 2000);
+                    displayResults(data);
+                    showNotification(`Проверка завершена! Валидных: ${data.valid}, Невалидных: ${data.invalid}`, 'success');
                 } else {
                     throw new Error(data.error || 'Ошибка сервера');
                 }
@@ -106,50 +189,66 @@ _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your
                 showNotification('Ошибка при проверке куки: ' + error.message, 'error');
             } finally {
                 button.disabled = false;
-                button.innerHTML = '<i class="fas fa-search"></i> Проверить куки';
+                button.innerHTML = '<i class="fas fa-search"></i> Начать проверку';
             }
         }
 
         function displayResults(data) {
             const resultsDiv = document.getElementById('results');
+            const validResults = data.results.filter(r => r.valid);
+            
             let html = `
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-value stat-total">${data.total}</div>
-                        <div>Всего проверено</div>
+                <div class="results-header">
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value stat-total">${data.total}</div>
+                            <div>Всего проверено</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value stat-valid">${data.valid}</div>
+                            <div>Валидных</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value stat-invalid">${data.invalid}</div>
+                            <div>Невалидных</div>
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value stat-valid">${data.valid}</div>
-                        <div>Валидных</div>
+                    
+                    ${validResults.length > 0 ? `
+                    <div class="download-section">
+                        <button class="btn btn-success btn-large" onclick="downloadResults()">
+                            <i class="fas fa-download"></i> Скачать проверенные куки
+                        </button>
+                        <div class="download-info">
+                            Архив будет содержать ${validResults.length} валидных куки, отсортированных по категориям
+                        </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-value stat-invalid">${data.invalid}</div>
-                        <div>Невалидных</div>
-                    </div>
+                    ` : ''}
                 </div>
             `;
             
-            // Показываем только первую валидную и первую невалидную куку для примера
-            const validExample = data.results.find(r => r.valid);
-            const invalidExample = data.results.find(r => !r.valid);
+            // Отображаем детальную информацию по валидным куки
+            validResults.forEach((result, index) => {
+                html += createAccountCard(result, index + 1);
+            });
             
-            if (validExample) {
+            // Показываем невалидные куки свернуто
+            const invalidResults = data.results.filter(r => !r.valid);
+            if (invalidResults.length > 0) {
                 html += `
-                    <div class="card fade-in">
-                        <h3 style="color: var(--secondary);"><i class="fas fa-check-circle"></i> Пример валидной куки</h3>
-                        <p><strong>Имя:</strong> ${validExample.account_info.name || 'N/A'}</p>
-                        <p><strong>ID:</strong> ${validExample.account_info.id || 'N/A'}</p>
-                        <p><strong>Robux:</strong> ${validExample.robux_balance.toLocaleString()}</p>
-                        <p><strong>Premium:</strong> ${validExample.is_premium ? '✅ Да' : '❌ Нет'}</p>
-                    </div>
-                `;
-            }
-            
-            if (invalidExample) {
-                html += `
-                    <div class="card fade-in">
-                        <h3 style="color: var(--danger);"><i class="fas fa-times-circle"></i> Пример невалидной куки</h3>
-                        <p><strong>Ошибка:</strong> ${invalidExample.error}</p>
+                    <div class="card">
+                        <div class="invalid-header" onclick="toggleInvalidResults()">
+                            <h3><i class="fas fa-times-circle"></i> Невалидные куки (${invalidResults.length})</h3>
+                            <i class="fas fa-chevron-down" id="invalidToggleIcon"></i>
+                        </div>
+                        <div class="invalid-content" id="invalidResults" style="display: none;">
+                            ${invalidResults.map(result => `
+                                <div class="invalid-item">
+                                    <div class="cookie-preview">${result.cookie.substring(0, 50)}...</div>
+                                    <div class="error-message">${result.error}</div>
+                                </div>
+                            `).join('')}
+                        </div>
                     </div>
                 `;
             }
@@ -157,77 +256,152 @@ _|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your
             resultsDiv.innerHTML = html;
         }
 
-        function showDownloadModal() {
-            document.getElementById('downloadModal').style.display = 'flex';
+        function createAccountCard(result, index) {
+            const acc = result.account_info;
+            const eco = result.economy;
+            const prem = result.premium;
+            const sec = result.security;
+            
+            return `
+                <div class="account-card fade-in">
+                    <div class="account-header">
+                        <div class="account-badge">#${index}</div>
+                        <h3>${acc.username}</h3>
+                        <div class="account-value">$${result.account_value}</div>
+                    </div>
+                    
+                    <div class="account-grid">
+                        <div class="account-section">
+                            <h4><i class="fas fa-user"></i> Основная информация</h4>
+                            <div class="info-row">
+                                <span>ID:</span>
+                                <span>${acc.user_id}</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Профиль:</span>
+                                <a href="${acc.profile_url}" target="_blank">Открыть</a>
+                            </div>
+                            <div class="info-row">
+                                <span>Дата регистрации:</span>
+                                <span>${acc.created_date} (${acc.account_age_years} лет)</span>
+                            </div>
+                        </div>
+                        
+                        <div class="account-section">
+                            <h4><i class="fas fa-coins"></i> Экономика</h4>
+                            <div class="info-row">
+                                <span>Баланс Robux:</span>
+                                <span class="robux-value">${eco.robux_balance.toLocaleString()}</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Pending Robux:</span>
+                                <span>${eco.pending_robux.toLocaleString()}</span>
+                            </div>
+                            <div class="info-row">
+                                <span>Всего трат:</span>
+                                <span>${eco.all_time_spent.toLocaleString()} R$</span>
+                            </div>
+                        </div>
+                        
+                        <div class="account-section">
+                            <h4><i class="fas fa-shield-alt"></i> Безопасность</h4>
+                            <div class="info-row">
+                                <span>Premium:</span>
+                                <span class="${prem.is_premium ? 'status-success' : 'status-error'}">
+                                    ${prem.is_premium ? '✅ Активно' : '❌ Неактивно'}
+                                </span>
+                            </div>
+                            <div class="info-row">
+                                <span>2FA:</span>
+                                <span class="${sec['2fa_enabled'] ? 'status-success' : 'status-error'}">
+                                    ${sec['2fa_enabled'] ? '✅ Включена' : '❌ Выключена'}
+                                </span>
+                            </div>
+                            <div class="info-row">
+                                <span>Телефон:</span>
+                                <span class="${sec.phone_verified ? 'status-success' : 'status-error'}">
+                                    ${sec.phone_verified ? '✅ Привязан' : '❌ Не привязан'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
 
-        function closeModal() {
-            document.getElementById('downloadModal').style.display = 'none';
-            showNotification('Вы отказались от скачивания', 'info');
-        }
-
-        function downloadArchive() {
+        function downloadResults() {
             if (!currentSessionId) {
                 showNotification('Нет данных для скачивания', 'error');
                 return;
             }
             
             window.open(`/download/${currentSessionId}`, '_blank');
-            document.getElementById('downloadModal').style.display = 'none';
             showNotification('Архив скачивается...', 'success');
         }
 
-        function clearInput() {
-            document.getElementById('cookiesInput').value = '';
-            document.getElementById('results').innerHTML = '';
-            currentSessionId = null;
-            showNotification('Поле очищено', 'info');
+        function toggleInvalidResults() {
+            const content = document.getElementById('invalidResults');
+            const icon = document.getElementById('invalidToggleIcon');
+            
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            } else {
+                content.style.display = 'none';
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            }
         }
 
         function showNotification(message, type = 'info') {
-            // Простая реализация уведомлений
-            alert(`${type.toUpperCase()}: ${message}`);
+            // Создаем уведомление
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info'}-circle"></i>
+                ${message}
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Анимация появления
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // Автоматическое скрытие
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => notification.remove(), 300);
+            }, 4000);
         }
 
-        // Закрытие модального окна по клику вне его
-        window.onclick = function(event) {
-            const modal = document.getElementById('downloadModal');
-            if (event.target === modal) {
-                closeModal();
+        // Стили для уведомлений
+        const style = document.createElement('style');
+        style.textContent = `
+            .notification {
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                border-radius: 10px;
+                color: white;
+                font-weight: 600;
+                z-index: 1000;
+                transform: translateX(100%);
+                transition: transform 0.3s ease;
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255,255,255,0.2);
             }
-        }
+            
+            .notification.show {
+                transform: translateX(0);
+            }
+            
+            .notification.success { background: rgba(16, 185, 129, 0.9); }
+            .notification.error { background: rgba(239, 68, 68, 0.9); }
+            .notification.info { background: rgba(59, 130, 246, 0.9); }
+        `;
+        document.head.appendChild(style);
     </script>
-
-    <style>
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-
-        .modal-content {
-            background: var(--glass);
-            backdrop-filter: blur(20px);
-            padding: 2rem;
-            border-radius: 15px;
-            border: 1px solid var(--glass-border);
-            max-width: 400px;
-            text-align: center;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            margin-top: 1.5rem;
-        }
-    </style>
 </body>
 </html>
