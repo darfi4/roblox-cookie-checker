@@ -8,29 +8,69 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <!-- Неоновые частицы -->
     <canvas id="particlesCanvas"></canvas>
     
-    <!-- Главный контейнер -->
     <div class="cyber-container">
-        <!-- Неоновый хедер -->
+        <!-- Хедер с меню -->
         <header class="cyber-header">
-            <div class="cyber-logo">
-                <i class="fas fa-robot"></i>
-                <span class="logo-text">КИРИЕШКА<span class="logo-accent">CHECK</span></span>
+            <div class="header-content">
+                <div class="cyber-logo">
+                    <i class="fas fa-robot"></i>
+                    <span class="logo-text">NEON<span class="logo-accent">CHECK</span></span>
+                </div>
+                
+                <!-- Десктопная навигация -->
+                <nav class="desktop-nav">
+                    <a href="{{ url_for('index') }}" class="nav-link active" data-page="home">
+                        <i class="fas fa-home"></i> ГЛАВНАЯ
+                    </a>
+                    <a href="{{ url_for('history') }}" class="nav-link" data-page="history">
+                        <i class="fas fa-history"></i> ИСТОРИЯ
+                    </a>
+                </nav>
+                
+                <!-- Мобильное меню -->
+                <div class="mobile-menu">
+                    <button class="menu-toggle" id="menuToggle">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </button>
+                </div>
             </div>
-            <div class="cyber-subtitle">ROBLOX COOKIE CHECKER</div>
         </header>
 
+        <!-- Мобильное меню боковая панель -->
+        <div class="mobile-sidebar" id="mobileSidebar">
+            <div class="sidebar-header">
+                <div class="cyber-logo">
+                    <i class="fas fa-robot"></i>
+                    <span class="logo-text">NEON<span class="logo-accent">CHECK</span></span>
+                </div>
+                <button class="close-menu" id="closeMenu">&times;</button>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="{{ url_for('index') }}" class="sidebar-link active" data-page="home">
+                    <i class="fas fa-home"></i> ГЛАВНАЯ
+                </a>
+                <a href="{{ url_for('history') }}" class="sidebar-link" data-page="history">
+                    <i class="fas fa-history"></i> ИСТОРИЯ
+                </a>
+                <a href="mailto:developer@example.com" class="sidebar-link contact-link">
+                    <i class="fas fa-envelope"></i> СВЯЗАТЬСЯ С РАЗРАБОТЧИКОМ
+                </a>
+            </nav>
+        </div>
+
         <!-- Основной контент -->
-        <main class="cyber-main">
+        <main class="cyber-main" id="mainContent">
             <!-- Герой секция -->
             <section class="cyber-hero">
                 <h1 class="cyber-title">
                     <span class="title-gradient">COOKIE</span>
                     <span class="title-neon">CHECKER</span>
                 </h1>
-                <p class="cyber-description">Быстрая и надёжная проверка печенья 🍪</p>
+                <p class="cyber-description">Проверка Roblox куки в реальном времени с киберпанк стилем</p>
             </section>
 
             <!-- Карточка ввода -->
@@ -51,22 +91,13 @@
                         </button>
                     </div>
 
-                    <nav class="cyber-nav">
-                        <a href="{{ url_for('index') }}" class="nav-link active">
-                            <i class="fas fa-home"></i> ГЛАВНАЯ
-                        </a>
-                        <a href="{{ url_for('history') }}" class="nav-link">
-                            <i class="fas fa-history"></i> ИСТОРИЯ
-                        </a>
-                    </nav>
-
                     <div class="tab-content active" id="text-tab">
                         <div class="input-group">
                             <label class="cyber-label">
                                 <i class="fas fa-cookie-bite"></i> .ROBLOSECURITY COOKIES
                             </label>
                             <textarea class="cyber-textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_"></textarea>
-                            <div class="input-hint">Максимум: 50 куки за проверку • Одна кука на строку</div>
+                            <div class="input-hint">Максимум: 30 куки за проверку • Одна кука на строку</div>
                         </div>
                     </div>
 
@@ -94,6 +125,7 @@
         </main>
     </div>
 
+    <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
     <script>
         // Переменные состояния
         let currentSessionId = null;
@@ -110,6 +142,45 @@
                 
                 e.target.classList.add('active');
                 document.getElementById(`${tab}-tab`).classList.add('active');
+            });
+        });
+
+        // Мобильное меню
+        const menuToggle = document.getElementById('menuToggle');
+        const mobileSidebar = document.getElementById('mobileSidebar');
+        const closeMenu = document.getElementById('closeMenu');
+
+        menuToggle.addEventListener('click', () => {
+            mobileSidebar.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+
+        closeMenu.addEventListener('click', () => {
+            mobileSidebar.classList.remove('active');
+            document.body.style.overflow = 'auto';
+        });
+
+        // Закрытие меню по клику вне его
+        document.addEventListener('click', (e) => {
+            if (!mobileSidebar.contains(e.target) && !menuToggle.contains(e.target)) {
+                mobileSidebar.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        });
+
+        // Плавная навигация
+        document.querySelectorAll('.nav-link, .sidebar-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                if (link.href && !link.href.includes('mailto:')) {
+                    e.preventDefault();
+                    
+                    // Плавный переход
+                    document.getElementById('mainContent').style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        window.location.href = link.href;
+                    }, 300);
+                }
             });
         });
 
@@ -151,7 +222,6 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('cookiesInput').value = e.target.result;
-                // Переключаем на текстовую вкладку
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 document.querySelector('[data-tab="text"]').classList.add('active');
@@ -173,12 +243,11 @@
             }
             
             const cookies = input.split('\n').filter(c => c.trim());
-            if (cookies.length > 50) {
-                showNotification('Максимум 50 куки за раз', 'error');
+            if (cookies.length > 30) {
+                showNotification('Максимум 30 куки за раз', 'error');
                 return;
             }
 
-            // Блокируем кнопку
             button.disabled = true;
             button.querySelector('.btn-content').innerHTML = '<i class="fas fa-spinner fa-spin"></i> ПРОВЕРКА...';
 
@@ -203,7 +272,6 @@
             } catch (error) {
                 showNotification('Ошибка: ' + error.message, 'error');
             } finally {
-                // Разблокируем кнопку
                 button.disabled = false;
                 button.querySelector('.btn-content').innerHTML = '<i class="fas fa-play"></i> ЗАПУСТИТЬ ПРОВЕРКУ';
             }
@@ -242,12 +310,10 @@
                 </div>
             `;
             
-            // Детальная информация по валидным аккаунтам
             validResults.forEach((result, index) => {
                 html += createAccountCard(result, index + 1);
             });
             
-            // Невалидные куки (свернуто)
             const invalidResults = data.results.filter(r => !r.valid);
             if (invalidResults.length > 0) {
                 html += `
@@ -328,8 +394,8 @@
                             <h4><i class="fas fa-shield-alt"></i> СТАТУС</h4>
                             <div class="info-row">
                                 <span>Premium:</span>
-                                <span class="status ${prem.is_premium ? 'success' : 'error'}">
-                                    ${prem.is_premium ? 'АКТИВНО' : 'НЕАКТИВНО'}
+                                <span class="status ${prem.isPremium ? 'success' : 'error'}">
+                                    ${prem.isPremium ? 'АКТИВНО' : 'НЕАКТИВНО'}
                                 </span>
                             </div>
                             <div class="info-row">
@@ -372,7 +438,6 @@
         }
 
         function showNotification(message, type) {
-            // Простая реализация уведомлений
             const notification = document.createElement('div');
             notification.className = `cyber-notification ${type}`;
             notification.innerHTML = `
@@ -382,9 +447,7 @@
             
             document.body.appendChild(notification);
             
-            setTimeout(() => {
-                notification.classList.add('show');
-            }, 10);
+            setTimeout(() => notification.classList.add('show'), 10);
             
             setTimeout(() => {
                 notification.classList.remove('show');
@@ -422,7 +485,6 @@
                     this.x += this.speedX;
                     this.y += this.speedY;
                     
-                    // Отталкивание от курсора
                     const dx = mouse.x - this.x;
                     const dy = mouse.y - this.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -442,7 +504,6 @@
                     ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
                     ctx.fill();
                     
-                    // Свечение
                     ctx.shadowBlur = 15;
                     ctx.shadowColor = this.color;
                 }
@@ -475,10 +536,181 @@
             animate();
         }
 
-        // Инициализация при загрузке
+        // Инициализация
         document.addEventListener('DOMContentLoaded', () => {
             initParticles();
+            // Плавное появление контента
+            setTimeout(() => {
+                document.getElementById('mainContent').style.opacity = '1';
+            }, 100);
         });
     </script>
+
+    <style>
+        /* Стили для улучшенной навигации */
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .desktop-nav {
+            display: flex;
+            gap: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .desktop-nav {
+                display: none;
+            }
+        }
+
+        .nav-link {
+            padding: 0.8rem 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 5px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            background: var(--neon-purple);
+            border-color: var(--neon-purple);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Мобильное меню */
+        .mobile-menu {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu {
+                display: block;
+            }
+        }
+
+        .menu-toggle {
+            background: none;
+            border: none;
+            color: var(--neon-cyan);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .menu-toggle span {
+            display: block;
+            width: 25px;
+            height: 3px;
+            background: var(--neon-cyan);
+            transition: all 0.3s ease;
+        }
+
+        .mobile-sidebar {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 300px;
+            height: 100vh;
+            background: var(--darker-bg);
+            border-left: 1px solid var(--neon-purple);
+            z-index: 1000;
+            transition: right 0.3s ease;
+            backdrop-filter: blur(20px);
+        }
+
+        .mobile-sidebar.active {
+            right: 0;
+        }
+
+        .sidebar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .close-menu {
+            background: none;
+            border: none;
+            color: var(--neon-cyan);
+            font-size: 2rem;
+            cursor: pointer;
+        }
+
+        .sidebar-nav {
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+        }
+
+        .sidebar-link {
+            padding: 1rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-link:hover,
+        .sidebar-link.active {
+            background: var(--neon-purple);
+            color: white;
+        }
+
+        .contact-link {
+            background: var(--neon-cyan);
+            color: white !important;
+            margin-top: 1rem;
+        }
+
+        .contact-link:hover {
+            background: var(--neon-purple);
+        }
+
+        /* Плавные переходы */
+        .cyber-main {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        /* Анимации */
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
 </body>
 </html>
