@@ -1,204 +1,65 @@
-{% extends "base.html" %}
-
-{% block content %}
-<section class="hero fade-in">
-    <h1 class="hero-title">Roblox Cookie Checker Pro</h1>
-    <p class="hero-subtitle">Профессиональная проверка Roblox куки с расширенной аналитикой</p>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Cookie Checker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div id="particles-js"></div>
     
-    {% if not current_user.is_authenticated %}
-    <div style="margin-top: 2rem;">
-        <a href="{{ url_for('auth.register') }}" class="btn btn-success">
-            <i class="fas fa-rocket"></i> Начать бесплатно
-        </a>
-        <a href="{{ url_for('auth.login') }}" class="btn" style="margin-left: 1rem;">
-            <i class="fas fa-sign-in-alt"></i> Войти в аккаунт
-        </a>
-    </div>
-    {% endif %}
-</section>
-
-<div class="card-grid">
-    <div class="card slide-in-left">
-        <h2 class="card-title"><i class="fas fa-shield-check"></i> Безопасность</h2>
-        <p>Проверка валидности куки с анализом безопасности аккаунта. Определение уровня защиты и рекомендации.</p>
-        <ul style="margin-top: 1rem; list-style: none;">
-            <li><i class="fas fa-check" style="color: var(--secondary);"></i> Проверка 2FA</li>
-            <li><i class="fas fa-check" style="color: var(--secondary);"></i> Статус телефона</li>
-            <li><i class="fas fa-check" style="color: var(--secondary);"></i> Анализ безопасности</li>
-        </ul>
-    </div>
-
-    <div class="card fade-in" style="animation-delay: 0.2s;">
-        <h2 class="card-title"><i class="fas fa-chart-line"></i> Аналитика</h2>
-        <p>Детальная статистика аккаунта: баланс Robux, Premium статус, возраст аккаунта и многое другое.</p>
-        <ul style="margin-top: 1rem; list-style: none;">
-            <li><i class="fas fa-coins" style="color: var(--warning);"></i> Баланс и pending Robux</li>
-            <li><i class="fas fa-crown" style="color: gold;"></i> Premium статус</li>
-            <li><i class="fas fa-calendar" style="color: var(--info);"></i> Возраст аккаунта</li>
-        </ul>
-    </div>
-
-    <div class="card slide-in-right">
-        <h2 class="card-title"><i class="fas fa-download"></i> Экспорт</h2>
-        <p>Скачивание результатов в удобных форматах с автоматической сортировкой по различным параметрам.</p>
-        <ul style="margin-top: 1rem; list-style: none;">
-            <li><i class="fas fa-sort-amount-down" style="color: var(--primary);"></i> Сортировка по балансу</li>
-            <li><i class="fas fa-star" style="color: gold;"></i> Сортировка по Premium</li>
-            <li><i class="fas fa-lock" style="color: var(--secondary);"></i> Сортировка по безопасности</li>
-        </ul>
-    </div>
-</div>
-
-{% if current_user.is_authenticated %}
-<section class="results-section">
-    <div class="card">
-        <h2 class="card-title"><i class="fas fa-bolt"></i> Быстрая проверка</h2>
-        <div class="form-group">
-            <label class="form-label">Введите куки .ROBLOSECURITY (по одной на строку):</label>
-            <textarea class="form-input textarea" id="cookiesInput" placeholder="_your_cookie_here_
-_another_cookie_here_"></textarea>
-        </div>
-        <button class="btn" onclick="checkCookies()" id="checkButton">
-            <i class="fas fa-search"></i> Проверить куки
-        </button>
-        <button class="btn btn-danger" onclick="clearInput()" style="margin-left: 1rem;">
-            <i class="fas fa-trash"></i> Очистить
-        </button>
-    </div>
-
-    <div id="results"></div>
-</section>
-
-<script>
-async function checkCookies() {
-    const input = document.getElementById('cookiesInput').value;
-    const resultsDiv = document.getElementById('results');
-    const button = document.getElementById('checkButton');
-    
-    if (!input.trim()) {
-        showNotification('Пожалуйста, введите куки для проверки', 'error');
-        return;
-    }
-    
-    button.disabled = true;
-    button.innerHTML = '<div class="loading"></div> Проверяем...';
-    
-    try {
-        const cookies = input.split('\n').filter(c => c.trim());
-        const response = await fetch('/check', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ cookies: cookies })
-        });
-        
-        const data = await response.json();
-        
-        if (response.ok) {
-            displayResults(data);
-            showNotification(`Проверка завершена! Валидных: ${data.valid}, Невалидных: ${data.invalid}`, 'success');
-        } else {
-            throw new Error(data.error || 'Ошибка сервера');
-        }
-        
-    } catch (error) {
-        showNotification('Ошибка при проверке куки', 'error');
-    } finally {
-        button.disabled = false;
-        button.innerHTML = '<i class="fas fa-search"></i> Проверить куки';
-    }
-}
-
-function displayResults(data) {
-    const resultsDiv = document.getElementById('results');
-    let html = `
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-value stat-total">${data.total}</div>
-                <div>Всего проверено</div>
+    <div class="container">
+        <div class="glass-card">
+            <h1 class="animated-title">🔐 Roblox Cookie Checker</h1>
+            <p class="subtitle">Проверка безопасности и статистики аккаунта</p>
+            
+            <div class="input-section">
+                <textarea id="cookieInput" placeholder="Введите .ROBLOSECURITY куки здесь..." class="cookie-input"></textarea>
+                <button id="checkButton" class="check-btn">
+                    <span class="btn-text">Проверить куки</span>
+                    <div class="btn-loader"></div>
+                </button>
             </div>
-            <div class="stat-card">
-                <div class="stat-value stat-valid">${data.valid}</div>
-                <div>Валидных</div>
+            
+            <div id="resultSection" class="result-section hidden">
+                <div class="result-grid">
+                    <div class="result-card" data-type="basic">
+                        <h3>👤 Основная информация</h3>
+                        <div id="basicInfo"></div>
+                    </div>
+                    
+                    <div class="result-card" data-type="security">
+                        <h3>🛡️ Безопасность</h3>
+                        <div id="securityInfo"></div>
+                    </div>
+                    
+                    <div class="result-card" data-type="economy">
+                        <h3>💰 Экономика</h3>
+                        <div id="economyInfo"></div>
+                    </div>
+                </div>
+                
+                <div class="actions">
+                    <button id="downloadBtn" class="action-btn download-btn">
+                        📥 Скачать отчет
+                    </button>
+                    <button id="historyBtn" class="action-btn history-btn" onclick="window.location.href='/history'">
+                        📊 История проверок
+                    </button>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-value stat-invalid">${data.invalid}</div>
-                <div>Невалидных</div>
+            
+            <div id="errorSection" class="error-section hidden">
+                <div class="error-card">
+                    <h3>❌ Ошибка</h3>
+                    <p id="errorMessage"></p>
+                </div>
             </div>
         </div>
-    `;
-    
-    data.results.forEach((result, index) => {
-        if (result.valid) {
-            html += createValidResultCard(result, index + 1);
-        } else {
-            html += createInvalidResultCard(result, index + 1);
-        }
-    });
-    
-    resultsDiv.innerHTML = html;
-}
+    </div>
 
-function createValidResultCard(result, index) {
-    return `
-        <div class="card fade-in" style="animation-delay: ${index * 0.1}s;">
-            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: var(--secondary);">
-                    <i class="fas fa-check-circle"></i> Аккаунт #${index} - ${result.account_info.name}
-                </h3>
-                <span style="background: var(--secondary); color: white; padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.8rem;">
-                    Валидный
-                </span>
-            </div>
-            ${createAccountDetails(result)}
-        </div>
-    `;
-}
-
-function createAccountDetails(result) {
-    return `
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-            <div><strong>ID:</strong> ${result.account_info.id}</div>
-            <div><strong>Robux:</strong> ${result.robux_balance.balance.toLocaleString()}</div>
-            <div><strong>Premium:</strong> ${result.premium_status.is_premium ? '✅ Да' : '❌ Нет'}</div>
-            <div><strong>2FA:</strong> ${result.two_step_verification.is_enabled ? '✅ Вкл' : '❌ Выкл'}</div>
-            <div><strong>Телефон:</strong> ${result.phone_status.is_verified ? '✅ Привязан' : '❌ Нет'}</div>
-            <div><strong>Возраст:</strong> ${result.account_age.age_days} дней</div>
-            <div><strong>Безопасность:</strong> ${result.security_analysis.security_score}/100</div>
-        </div>
-    `;
-}
-
-function createInvalidResultCard(result, index) {
-    return `
-        <div class="card fade-in" style="animation-delay: ${index * 0.1}s; border-left: 4px solid var(--danger);">
-            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1rem;">
-                <h3 style="margin: 0; color: var(--danger);">
-                    <i class="fas fa-times-circle"></i> Кука #${index} - Невалидная
-                </h3>
-                <span style="background: var(--danger); color: white; padding: 0.3rem 0.8rem; border-radius: 15px; font-size: 0.8rem;">
-                    Невалидный
-                </span>
-            </div>
-            <p><strong>Ошибка:</strong> ${result.error}</p>
-        </div>
-    `;
-}
-
-function clearInput() {
-    document.getElementById('cookiesInput').value = '';
-    document.getElementById('results').innerHTML = '';
-    showNotification('Поле очищено', 'info');
-}
-
-function showNotification(message, type = 'info') {
-    // Реализация уведомлений
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    document.querySelector('.container').appendChild(notification);
-    
-    setTimeout(() => notification.remove(), 3000);
-}
-</script>
-{% endif %}
-{% endblock %}
+    <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
