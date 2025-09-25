@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Ошибка сервера - RCC Pro{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center; padding: 4rem;">
+    <h1 style="font-size: 4rem; color: var(--danger);">500</h1>
+    <h2>Внутренняя ошибка сервера</h2>
+    <p>Произошла непредвиденная ошибка. Попробуйте позже.</p>
+    <a href="{{ url_for('index') }}" class="btn" style="margin-top: 2rem;">
+        <i class="fas fa-home"></i> На главную
+    </a>
+</div>
+{% endblock %}
