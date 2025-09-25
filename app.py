@@ -8,6 +8,7 @@ import json
 import zipfile
 import io
 from datetime import datetime
+from datetime import timedelta  # Добавить в начало файла
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
