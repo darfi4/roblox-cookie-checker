@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Cookie Checker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            resize: vertical;
+            font-family: monospace;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .valid {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+        }
+        .invalid {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+        }
+        .cookie-info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .stats {
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Roblox Cookie Checker</h1>
+        <p>Введите куки .ROBLOSECURITY (по одной на строку):</p>
+        
+        <textarea id="cookiesInput" placeholder="Вставьте куки здесь...
+Пример:
+_cookie1_здесь_
+_cookie2_здесь_
+_cookie3_здесь_"></textarea>
+        <br>
+        <button onclick="checkCookies()" id="checkButton">Проверить куки</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        async function checkCookies() {
+            const input = document.getElementById('cookiesInput').value;
+            const resultsDiv = document.getElementById('results');
+            const button = document.getElementById('checkButton');
+            
+            if (!input.trim()) {
+                alert('Пожалуйста, введите куки для проверки');
+                return;
+            }
+            
+            button.disabled = true;
+            button.textContent = 'Проверяем...';
+            resultsDiv.innerHTML = '<p>⏳ Проверяем куки...</p>';
+            
+            try {
+                const cookies = input.split('\n').filter(c => c.trim());
+                
+                const response = await fetch('/check', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ cookies: cookies })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    resultsDiv.innerHTML = `<div class="invalid">❌ Ошибка: ${data.error}</div>`;
+                }
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="invalid">❌ Ошибка: ${error.message}</div>`;
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Проверить куки';
+            }
+        }
+        
+        function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
+            let html = `
+                <div class="stats">
+                    <h3>📊 Результаты проверки</h3>
+                    <p>✅ Валидных: <strong>${data.valid}</strong> | ❌ Невалидных: <strong>${data.invalid}</strong> | 📋 Всего: <strong>${data.total}</strong></p>
+                </div>
+            `;
+            
+            data.results.forEach((result, index) => {
+                if (result.valid) {
+                    html += `
+                        <div class="result valid">
+                            <strong>✅ Аккаунт #${index + 1} - Валидный</strong>
+                            <div class="cookie-info">
+                                <p>👤 <strong>Имя пользователя:</strong> ${result.username}</p>
+                                <p>🆔 <strong>User ID:</strong> ${result.user_id}</p>
+                                <p>💰 <strong>Robux:</strong> ${result.robux.toLocaleString()}</p>
+                                <p>⭐ <strong>Premium:</strong> ${result.premium ? '✅ Да' : '❌ Нет'}</p>
+                                <p>🔐 <strong>Кука:</strong> ${result.cookie}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="result invalid">
+                            <strong>❌ Кука #${index + 1} - Невалидная</strong>
+                            <div class="cookie-info">
+                                <p>🚫 <strong>Ошибка:</strong> ${result.error}</p>
+                                <p>🔐 <strong>Кука:</strong> ${result.cookie}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
