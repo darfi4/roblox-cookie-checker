@@ -9,7 +9,8 @@ from flask import Flask, render_template, request, jsonify, send_file
 import requests
 import time
 import re
-import threading
+import hashlib
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 app = Flask(__name__)
@@ -29,10 +30,18 @@ def init_db():
             CREATE TABLE IF NOT EXISTS check_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 session_id TEXT UNIQUE,
+                user_id TEXT,
                 total_cookies INTEGER,
                 valid_cookies INTEGER,
                 check_date TEXT,
                 results TEXT
+            )
+        ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS user_sessions (
+                user_id TEXT PRIMARY KEY,
+                created_date TEXT,
+                last_active TEXT
             )
         ''')
         conn.commit()
@@ -44,15 +53,42 @@ def init_db():
 # Инициализируем базу при запуске
 init_db()
 
-def save_check_session(session_id, total, valid, results):
+def get_user_id():
+    """Генерируем уникальный ID пользователя на основе IP и User-Agent"""
+    try:
+        ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+        user_agent = request.headers.get('User-Agent', '')
+        unique_string = f"{ip}-{user_agent}"
+        return hashlib.md5(unique_string.encode()).hexdigest()
+    except:
+        return str(uuid.uuid4())
+
+def save_user_session(user_id):
+    """Сохраняем/обновляем сессию пользователя"""
+    try:
+        conn = sqlite3.connect(app.config['DATABASE'])
+        c = conn.cursor()
+        now = datetime.now().isoformat()
+        c.execute('''
+            INSERT OR REPLACE INTO user_sessions 
+            (user_id, created_date, last_active)
+            VALUES (?, COALESCE((SELECT created_date FROM user_sessions WHERE user_id = ?), ?), ?)
+        ''', (user_id, user_id, now, now))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error saving user session: {e}")
+
+def save_check_session(session_id, user_id, total, valid, results):
+    """Сохраняем проверку с привязкой к пользователю"""
     try:
         conn = sqlite3.connect(app.config['DATABASE'])
         c = conn.cursor()
         c.execute('''
             INSERT OR REPLACE INTO check_history 
-            (session_id, total_cookies, valid_cookies, check_date, results)
-            VALUES (?, ?, ?, ?, ?)
-        ''', (session_id, total, valid, datetime.now().isoformat(), json.dumps(results)))
+            (session_id, user_id, total_cookies, valid_cookies, check_date, results)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (session_id, user_id, total, valid, datetime.now().isoformat(), json.dumps(results)))
         conn.commit()
         conn.close()
         return True
@@ -60,15 +96,17 @@ def save_check_session(session_id, total, valid, results):
         print(f"Error saving session: {e}")
         return False
 
-def get_check_history(limit=20):
+def get_user_history(user_id, limit=20):
+    """Получаем историю только для конкретного пользователя"""
     try:
         conn = sqlite3.connect(app.config['DATABASE'])
         c = conn.cursor()
         c.execute('''
             SELECT * FROM check_history 
+            WHERE user_id = ?
             ORDER BY check_date DESC 
             LIMIT ?
-        ''', (limit,))
+        ''', (user_id, limit))
         history = c.fetchall()
         conn.close()
         
@@ -77,21 +115,23 @@ def get_check_history(limit=20):
             result.append({
                 'id': item[0],
                 'session_id': item[1],
-                'total_cookies': item[2],
-                'valid_cookies': item[3],
-                'check_date': item[4],
-                'results': json.loads(item[5]) if item[5] else []
+                'user_id': item[2],
+                'total_cookies': item[3],
+                'valid_cookies': item[4],
+                'check_date': item[5],
+                'results': json.loads(item[6]) if item[6] else []
             })
         return result
     except Exception as e:
-        print(f"Error getting history: {e}")
+        print(f"Error getting user history: {e}")
         return []
 
-def get_session_results(session_id):
+def get_session_results(session_id, user_id):
+    """Получаем результаты сессии с проверкой пользователя"""
     try:
         conn = sqlite3.connect(app.config['DATABASE'])
         c = conn.cursor()
-        c.execute('SELECT results FROM check_history WHERE session_id = ?', (session_id,))
+        c.execute('SELECT results FROM check_history WHERE session_id = ? AND user_id = ?', (session_id, user_id))
         result = c.fetchone()
         conn.close()
         return json.loads(result[0]) if result else None
@@ -109,7 +149,7 @@ class AdvancedRobloxChecker:
             'Origin': 'https://www.roblox.com',
             'Referer': 'https://www.roblox.com/',
         })
-        self.timeout = 15
+        self.timeout = 20
 
     def get_csrf_token(self, cookie):
         """Получение CSRF токена"""
@@ -126,10 +166,19 @@ class AdvancedRobloxChecker:
         return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=32))
 
     def check_single_cookie(self, cookie):
-        """Проверка одной куки"""
+        """Проверка одной куки с улучшенной валидацией"""
         cookie = cookie.strip()
+        
+        # Базовая валидация формата куки
+        if not cookie or len(cookie) < 100:
+            return self.error_result(cookie, 'Invalid cookie format (too short)')
+            
         if cookie.startswith('"') and cookie.endswith('"'):
             cookie = cookie[1:-1]
+        
+        # Проверяем базовую структуру куки
+        if not cookie.startswith('_|WARNING:-DO-NOT-SHARE-THIS.'):
+            return self.error_result(cookie, 'Invalid cookie format (missing warning)')
         
         headers = {
             'Cookie': f'.ROBLOSECURITY={cookie}',
@@ -147,12 +196,16 @@ class AdvancedRobloxChecker:
             
             if auth_response.status_code == 401:
                 return self.error_result(cookie, 'Invalid cookie (Unauthorized)')
+            elif auth_response.status_code == 403:
+                return self.error_result(cookie, 'Cookie blocked by Roblox (403)')
+            elif auth_response.status_code == 429:
+                return self.error_result(cookie, 'Rate limit exceeded (429)')
             elif auth_response.status_code != 200:
                 return self.error_result(cookie, f'Auth failed: {auth_response.status_code}')
             
             auth_data = auth_response.json()
             if not auth_data.get('id'):
-                return self.error_result(cookie, 'Invalid user data')
+                return self.error_result(cookie, 'Invalid user data in response')
             
             user_id = auth_data['id']
             
@@ -162,6 +215,10 @@ class AdvancedRobloxChecker:
             premium_data = self.get_premium_status(headers, user_id)
             friends_data = self.get_friends_count(headers, user_id)
             is_2fa_enabled = self.check_2fa_status(headers)
+            
+            # Дополнительная проверка валидности данных
+            if not auth_data.get('name'):
+                return self.error_result(cookie, 'Invalid account data (no username)')
             
             # Расчет метрик
             account_age = self.calculate_account_age(auth_data.get('created'))
@@ -202,6 +259,10 @@ class AdvancedRobloxChecker:
                 'checked_at': datetime.now().isoformat()
             }
 
+        except requests.exceptions.Timeout:
+            return self.error_result(cookie, 'Request timeout (server too slow)')
+        except requests.exceptions.ConnectionError:
+            return self.error_result(cookie, 'Connection error (network issue)')
         except Exception as e:
             return self.error_result(cookie, f"Check error: {str(e)}")
 
@@ -336,15 +397,24 @@ class AdvancedRobloxChecker:
     def check_multiple_cookies(self, cookies):
         """Проверка нескольких куки с использованием потоков"""
         results = []
+        valid_cookies = []
+        
+        # Предварительная фильтрация куки
+        for cookie in cookies:
+            cookie = cookie.strip()
+            if cookie and len(cookie) > 100 and cookie.startswith('_|WARNING:-DO-NOT-SHARE-THIS.'):
+                valid_cookies.append(cookie)
+        
+        if not valid_cookies:
+            return [self.error_result("", "No valid cookies found")]
         
         # Ограничиваем количество одновременных проверок
-        max_workers = min(3, len(cookies))
+        max_workers = min(2, len(valid_cookies))  # Уменьшил для стабильности
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Создаем future для каждой куки
             future_to_cookie = {
                 executor.submit(self.check_single_cookie, cookie): cookie 
-                for cookie in cookies
+                for cookie in valid_cookies
             }
             
             for future in as_completed(future_to_cookie):
@@ -352,11 +422,11 @@ class AdvancedRobloxChecker:
                     result = future.result()
                     results.append(result)
                     # Задержка между запросами для избежания блокировки
-                    time.sleep(1)
+                    time.sleep(2)  # Увеличил задержку
                 except Exception as e:
                     cookie = future_to_cookie[future]
                     results.append(self.error_result(cookie, f"Check failed: {str(e)}"))
-                    time.sleep(0.5)
+                    time.sleep(1)
         
         return results
 
@@ -374,9 +444,11 @@ def health_check():
 
 @app.route('/api/history')
 def api_history():
-    """API для получения истории"""
+    """API для получения истории пользователя"""
     try:
-        check_history = get_check_history(20)
+        user_id = get_user_id()
+        save_user_session(user_id)
+        check_history = get_user_history(user_id, 20)
         return jsonify(check_history)
     except Exception as e:
         return jsonify({'error': f'Database error: {str(e)}'}), 500
@@ -385,6 +457,9 @@ def api_history():
 def api_check_cookies():
     """API для проверки куки"""
     try:
+        user_id = get_user_id()
+        save_user_session(user_id)
+        
         data = request.get_json()
         
         if not data or 'cookies' not in data:
@@ -409,8 +484,8 @@ def api_check_cookies():
         session_id = datetime.now().strftime('%Y%m%d_%H%M%S_') + ''.join(random.choices('0123456789abcdef', k=8))
         valid_count = len([r for r in results if r.get('valid', False)])
         
-        # Сохраняем в базу
-        save_success = save_check_session(session_id, len(cookies), valid_count, results)
+        # Сохраняем в базу с привязкой к пользователю
+        save_success = save_check_session(session_id, user_id, len(cookies), valid_count, results)
         
         if not save_success:
             return jsonify({'error': 'Failed to save results to database'}), 500
@@ -432,7 +507,8 @@ def api_check_cookies():
 def api_download_results(session_id):
     """API для скачивания результатов"""
     try:
-        results = get_session_results(session_id)
+        user_id = get_user_id()
+        results = get_session_results(session_id, user_id)
         if not results:
             return jsonify({'error': 'Results not found'}), 404
         
@@ -491,7 +567,8 @@ def api_download_results(session_id):
 def api_get_session(session_id):
     """API для получения результатов сессии"""
     try:
-        results = get_session_results(session_id)
+        user_id = get_user_id()
+        results = get_session_results(session_id, user_id)
         if results:
             valid_count = len([r for r in results if r.get('valid', False)])
             return jsonify({
@@ -509,15 +586,36 @@ def api_get_session(session_id):
 def api_delete_session(session_id):
     """API для удаления сессии"""
     try:
+        user_id = get_user_id()
         conn = sqlite3.connect(app.config['DATABASE'])
         c = conn.cursor()
-        c.execute('DELETE FROM check_history WHERE session_id = ?', (session_id,))
+        c.execute('DELETE FROM check_history WHERE session_id = ? AND user_id = ?', (session_id, user_id))
         conn.commit()
         conn.close()
         return jsonify({'success': True})
     except Exception as e:
         print(f"Delete error: {e}")
         return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+
+@app.route('/api/stats')
+def api_stats():
+    """API для получения статистики"""
+    try:
+        user_id = get_user_id()
+        history = get_user_history(user_id, 100)
+        
+        total_checks = len(history)
+        total_cookies = sum(check['total_cookies'] for check in history)
+        valid_cookies = sum(check['valid_cookies'] for check in history)
+        
+        return jsonify({
+            'total_checks': total_checks,
+            'total_cookies': total_cookies,
+            'valid_cookies': valid_cookies,
+            'success_rate': round((valid_cookies / total_cookies * 100) if total_cookies > 0 else 0, 1)
+        })
+    except Exception as e:
+        return jsonify({'error': f'Stats error: {str(e)}'}), 500
 
 @app.errorhandler(404)
 def not_found(error):
