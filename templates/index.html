@@ -7,19 +7,21 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Стили для плавных переходов */
-        .page-content {
+        /* Стили для плавных переходов между секциями */
+        .page-section {
+            display: none;
             opacity: 0;
-            transform: translateY(20px);
+            transform: translateY(30px);
             transition: all 0.6s ease-in-out;
         }
 
-        .page-content.active {
+        .page-section.active {
+            display: block;
             opacity: 1;
             transform: translateY(0);
         }
 
-        /* Стили для вкладок под логотипом */
+        /* Стили для вкладок навигации */
         .main-tabs {
             display: flex;
             justify-content: center;
@@ -39,6 +41,7 @@
             display: flex;
             align-items: center;
             gap: 0.5rem;
+            cursor: pointer;
         }
 
         .main-tab:hover {
@@ -54,7 +57,7 @@
             box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
         }
 
-        /* Стили для меню */
+        /* Стили для меню контактов */
         .menu-button {
             background: none;
             border: none;
@@ -150,12 +153,120 @@
             visibility: visible;
         }
 
-        /* Улучшенное расположение кнопки проверки */
-        .check-button-container {
-            text-align: center;
+        /* Стили для истории */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
             margin-top: 2rem;
-            padding-top: 2rem;
-            border-top: 1px solid var(--card-border);
+        }
+
+        .history-item {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--card-border);
+            border-radius: 5px;
+            padding: 1rem;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .history-id {
+            background: var(--neon-purple);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+        }
+
+        .history-date {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .history-stats {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .stat {
+            padding: 0.3rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .stat.valid {
+            background: var(--success);
+            color: white;
+        }
+
+        .stat.total {
+            background: var(--neon-cyan);
+            color: white;
+        }
+
+        .history-actions {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            color: var(--neon-purple);
+        }
+
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
         }
 
         /* Анимации */
@@ -172,16 +283,6 @@
 
         .fade-in-up {
             animation: fadeInUp 0.6s ease forwards;
-        }
-
-        /* Скрытие неактивного контента */
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
-            display: block;
-            animation: fadeInUp 0.6s ease;
         }
     </style>
 </head>
@@ -228,19 +329,19 @@
                 </button>
             </div>
 
-            <!-- Вкладки под логотипом -->
+            <!-- Вкладки навигации -->
             <nav class="main-tabs">
-                <a href="{{ url_for('index') }}" class="main-tab active" data-page="home">
+                <div class="main-tab active" data-page="home">
                     <i class="fas fa-home"></i> ГЛАВНАЯ
-                </a>
-                <a href="{{ url_for('history') }}" class="main-tab" data-page="history">
+                </div>
+                <div class="main-tab" data-page="history">
                     <i class="fas fa-history"></i> ИСТОРИЯ
-                </a>
+                </div>
             </nav>
         </header>
 
-        <!-- Основной контент -->
-        <main class="page-content active" id="mainContent">
+        <!-- Секция главной страницы -->
+        <section id="homeSection" class="page-section active">
             <!-- Герой секция -->
             <section class="cyber-hero fade-in-up">
                 <h1 class="cyber-title">
@@ -289,7 +390,7 @@
                     </div>
 
                     <div class="check-button-container">
-                        <button class="cyber-button large" id="checkButton" onclick="checkCookies()">
+                        <button class="cyber-button large" id="checkButton">
                             <span class="btn-content">
                                 <i class="fas fa-shield-alt"></i>
                                 ЗАПУСТИТЬ ПРОВЕРКУ
@@ -302,35 +403,73 @@
 
             <!-- Контейнер для результатов -->
             <div id="resultsContainer"></div>
-        </main>
+        </section>
+
+        <!-- Секция истории -->
+        <section id="historySection" class="page-section">
+            <div class="cyber-card">
+                <div class="card-header">
+                    <i class="fas fa-database"></i>
+                    <h2>ИСТОРИЯ ПРОВЕРОК</h2>
+                    <div class="pulse-dot"></div>
+                </div>
+
+                <div id="historyContent">
+                    <!-- История будет загружена здесь -->
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Модальное окно для просмотра результатов -->
+    <div id="resultsModal" class="modal">
+        <div class="modal-content cyber-card">
+            <div class="modal-header">
+                <h3>РЕЗУЛЬТАТЫ ПРОВЕРКИ</h3>
+                <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalResults">
+                <!-- Результаты будут загружены здесь -->
+            </div>
+        </div>
     </div>
 
     <script>
-        // ==================== ПЛАВНАЯ НАВИГАЦИЯ МЕЖДУ СТРАНИЦАМИ ====================
-        function navigateTo(url) {
-            const mainContent = document.getElementById('mainContent');
+        // ==================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ====================
+        let currentSessionId = null;
+        let currentResults = [];
+        let currentPage = 'home';
+
+        // ==================== СИСТЕМА НАВИГАЦИИ ====================
+        function navigateTo(page) {
+            if (currentPage === page) return;
             
-            // Плавное исчезновение
-            mainContent.style.opacity = '0';
-            mainContent.style.transform = 'translateY(20px)';
+            const currentSection = document.getElementById(currentPage + 'Section');
+            const newSection = document.getElementById(page + 'Section');
+            const currentTab = document.querySelector(`[data-page="${currentPage}"]`);
+            const newTab = document.querySelector(`[data-page="${page}"]`);
             
-            // Переход после анимации
+            // Анимация перехода
+            currentSection.classList.remove('active');
+            
             setTimeout(() => {
-                window.location.href = url;
-            }, 600);
+                currentTab.classList.remove('active');
+                newTab.classList.add('active');
+                newSection.classList.add('active');
+                currentPage = page;
+                
+                // Загружаем историю при переходе на страницу истории
+                if (page === 'history') {
+                    loadHistory();
+                }
+            }, 300);
         }
 
         // Обработчики для вкладок навигации
         document.querySelectorAll('.main-tab').forEach(tab => {
-            tab.addEventListener('click', function(e) {
-                e.preventDefault();
-                
-                // Обновляем активные вкладки
-                document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
-                this.classList.add('active');
-                
-                // Плавный переход
-                navigateTo(this.href);
+            tab.addEventListener('click', function() {
+                const page = this.dataset.page;
+                navigateTo(page);
             });
         });
 
@@ -355,7 +494,6 @@
             btn.addEventListener('click', function() {
                 const tab = this.dataset.tab;
                 
-                // Обновляем активные табы
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 
@@ -402,7 +540,6 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('cookiesInput').value = e.target.result;
-                // Переключаем на текстовую вкладку
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 document.querySelector('[data-tab="text"]').classList.add('active');
@@ -414,6 +551,8 @@
         }
 
         // ==================== ПРОВЕРКА КУКИ ====================
+        document.getElementById('checkButton').addEventListener('click', checkCookies);
+
         async function checkCookies() {
             const input = document.getElementById('cookiesInput').value;
             const button = document.getElementById('checkButton');
@@ -433,7 +572,7 @@
             button.querySelector('.btn-content').innerHTML = '<i class="fas fa-spinner fa-spin"></i> ПРОВЕРКА...';
 
             try {
-                const response = await fetch('/check', {
+                const response = await fetch('/api/check', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ cookies: cookies })
@@ -446,6 +585,11 @@
                     currentSessionId = data.session_id;
                     displayResults(data);
                     showNotification(`Проверено: ${data.valid} валидных, ${data.invalid} невалидных`, 'success');
+                    
+                    // Обновляем историю если мы на странице истории
+                    if (currentPage === 'history') {
+                        loadHistory();
+                    }
                 } else {
                     throw new Error(data.error || 'Ошибка сервера');
                 }
@@ -565,8 +709,8 @@
                                 <span>${eco.pending_robux.toLocaleString()}</span>
                             </div>
                             <div class="info-row">
-                                <span>Всего потрачено:</span>
-                                <span class="total-spent">${eco.all_time_spent.toLocaleString()} R$</span>
+                                <span>Всего Robux:</span>
+                                <span class="total-spent">${eco.total_robux.toLocaleString()} R$</span>
                             </div>
                         </div>
                         
@@ -590,10 +734,151 @@
             `;
         }
 
+        // ==================== ИСТОРИЯ ПРОВЕРОК ====================
+        async function loadHistory() {
+            const historyContent = document.getElementById('historyContent');
+            historyContent.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Загрузка истории...</p></div>';
+
+            try {
+                const response = await fetch('/api/history');
+                const history = await response.json();
+                
+                if (history.length === 0) {
+                    historyContent.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-inbox"></i>
+                            <h3>ИСТОРИЯ ПУСТА</h3>
+                            <p>Здесь будут отображаться ваши предыдущие проверки</p>
+                            <button class="cyber-button" onclick="navigateTo('home')">
+                                <i class="fas fa-play"></i> НАЧАТЬ ПРОВЕРКУ
+                            </button>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let html = '<div class="history-list">';
+                
+                history.forEach(check => {
+                    html += `
+                        <div class="history-item">
+                            <div class="history-header">
+                                <div class="history-id">#${check.id}</div>
+                                <div class="history-date">${check.check_date.replace('T', ' ').substring(0, 16)}</div>
+                                <div class="history-stats">
+                                    <span class="stat valid">${check.valid_cookies} ВАЛИД</span>
+                                    <span class="stat total">${check.total_cookies} ВСЕГО</span>
+                                </div>
+                            </div>
+                            
+                            <div class="history-actions">
+                                <button class="cyber-button small" onclick="viewResults('${check.session_id}')">
+                                    <i class="fas fa-eye"></i> ПРОСМОТР
+                                </button>
+                                <button class="cyber-button success small" onclick="downloadSession('${check.session_id}')">
+                                    <i class="fas fa-download"></i> СКАЧАТЬ
+                                </button>
+                                <button class="cyber-button error small" onclick="deleteSession('${check.session_id}')">
+                                    <i class="fas fa-trash"></i> УДАЛИТЬ
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += '</div>';
+                historyContent.innerHTML = html;
+                
+            } catch (error) {
+                historyContent.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-triangle"></i><p>Ошибка загрузки истории</p></div>';
+            }
+        }
+
+        async function viewResults(sessionId) {
+            try {
+                const response = await fetch(`/api/session/${sessionId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayModalResults(data);
+                    document.getElementById('resultsModal').style.display = 'block';
+                } else {
+                    showNotification('Ошибка загрузки результатов', 'error');
+                }
+            } catch (error) {
+                showNotification('Ошибка: ' + error.message, 'error');
+            }
+        }
+
+        function displayModalResults(data) {
+            const modalContent = document.getElementById('modalResults');
+            const validResults = data.results.filter(r => r.valid);
+            
+            let html = `
+                <div class="results-summary">
+                    <div class="stats-grid">
+                        <div class="cyber-stat">
+                            <div class="stat-value">${data.total}</div>
+                            <div class="stat-label">ВСЕГО</div>
+                        </div>
+                        <div class="cyber-stat valid">
+                            <div class="stat-value">${data.valid}</div>
+                            <div class="stat-label">ВАЛИДНЫХ</div>
+                        </div>
+                        <div class="cyber-stat invalid">
+                            <div class="stat-value">${data.invalid}</div>
+                            <div class="stat-label">НЕВАЛИДНЫХ</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="valid-accounts">
+                    <h4>ВАЛИДНЫЕ АККАУНТЫ (${validResults.length})</h4>
+                    ${validResults.map(result => `
+                        <div class="account-preview">
+                            <strong>${result.account_info.username}</strong>
+                            <span>ID: ${result.account_info.user_id}</span>
+                            <span>Robux: ${result.economy.total_robux}</span>
+                            <span class="status ${result.premium.isPremium ? 'success' : 'error'}">
+                                ${result.premium.isPremium ? 'PREMIUM' : 'STANDARD'}
+                            </span>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+            
+            modalContent.innerHTML = html;
+        }
+
+        function downloadSession(sessionId) {
+            window.open(`/api/download/${sessionId}`, '_blank');
+            showNotification('Архив скачивается...', 'success');
+        }
+
+        async function deleteSession(sessionId) {
+            if (confirm('Удалить эту запись из истории?')) {
+                try {
+                    const response = await fetch(`/api/delete/${sessionId}`, { method: 'DELETE' });
+                    if (response.ok) {
+                        showNotification('Запись удалена', 'success');
+                        loadHistory(); // Перезагружаем историю
+                    } else {
+                        showNotification('Ошибка удаления', 'error');
+                    }
+                } catch (error) {
+                    showNotification('Ошибка: ' + error.message, 'error');
+                }
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('resultsModal').style.display = 'none';
+        }
+
         // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
         function downloadResults() {
             if (!currentSessionId) return;
-            window.open(`/download/${currentSessionId}`, '_blank');
+            window.open(`/api/download/${currentSessionId}`, '_blank');
             showNotification('Архив скачивается...', 'success');
         }
 
@@ -630,11 +915,6 @@
 
         // ==================== ИНИЦИАЛИЗАЦИЯ ====================
         document.addEventListener('DOMContentLoaded', () => {
-            // Плавное появление контента
-            setTimeout(() => {
-                document.getElementById('mainContent').classList.add('active');
-            }, 100);
-            
             // Стили для уведомлений
             const style = document.createElement('style');
             style.textContent = `
@@ -665,13 +945,44 @@
                 .cyber-notification.error {
                     border-color: var(--error);
                 }
+
+                .account-preview {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.5rem;
+                    margin-bottom: 0.5rem;
+                    background: rgba(0, 0, 0, 0.3);
+                    border-radius: 5px;
+                    flex-wrap: wrap;
+                    gap: 0.5rem;
+                }
+
+                @media (max-width: 768px) {
+                    .account-preview {
+                        flex-direction: column;
+                        align-items: flex-start;
+                    }
+                }
             `;
             document.head.appendChild(style);
+
+            // Инициализация частиц
+            initParticles();
         });
 
-        // Переменные состояния
-        let currentSessionId = null;
-        let currentResults = [];
+        // Закрытие модального окна по клику вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('resultsModal');
+            if (event.target === modal) {
+                closeModal();
+            }
+        }
+
+        // Функция для инициализации частиц (добавьте свою реализацию)
+        function initParticles() {
+            // Ваш код для частиц здесь
+        }
     </script>
 </body>
 </html>

