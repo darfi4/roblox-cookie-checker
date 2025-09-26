@@ -1,0 +1,13 @@
+{
+    "name": "roblox-cookie-checker",
+    "version": "1.0.0",
+    "description": "Roblox Cookie Checker with Neon Cyberpunk Design",
+    "scripts": {
+        "start": "python app.py",
+        "dev": "python app.py"
+    },
+    "engines": {
+        "node": ">=14.0.0",
+        "npm": ">=6.0.0"
+    }
+}
