@@ -21,6 +21,14 @@ app.config['DATABASE'] = os.environ.get('DATABASE_URL', 'checker_history.db').re
 if app.config['DATABASE'].startswith('sqlite:///'):
     app.config['DATABASE'] = app.config['DATABASE'].replace('sqlite:///', '')
 
+# Глобальная статистика
+global_stats = {
+    'total_checked': 0,
+    'valid_accounts': 0,
+    'active_users': set(),
+    'last_reset': datetime.now().isoformat()
+}
+
 # Инициализация базы данных
 def init_db():
     try:
@@ -44,6 +52,15 @@ def init_db():
                 last_active TEXT
             )
         ''')
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS global_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                total_checked INTEGER DEFAULT 0,
+                valid_accounts INTEGER DEFAULT 0,
+                unique_users INTEGER DEFAULT 0,
+                last_updated TEXT
+            )
+        ''')
         conn.commit()
         conn.close()
         print("Database initialized successfully")
@@ -52,6 +69,56 @@ def init_db():
 
 # Инициализируем базу при запуске
 init_db()
+
+def update_global_stats(total_checked=0, valid_accounts=0):
+    """Обновление глобальной статистики"""
+    try:
+        conn = sqlite3.connect(app.config['DATABASE'])
+        c = conn.cursor()
+        now = datetime.now().isoformat()
+        
+        c.execute('SELECT * FROM global_stats WHERE id = 1')
+        existing = c.fetchone()
+        
+        if existing:
+            c.execute('''
+                UPDATE global_stats SET 
+                total_checked = total_checked + ?,
+                valid_accounts = valid_accounts + ?,
+                last_updated = ?
+                WHERE id = 1
+            ''', (total_checked, valid_accounts, now))
+        else:
+            c.execute('''
+                INSERT INTO global_stats (total_checked, valid_accounts, unique_users, last_updated)
+                VALUES (?, ?, 1, ?)
+            ''', (total_checked, valid_accounts, now))
+        
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error updating global stats: {e}")
+
+def get_global_stats():
+    """Получение глобальной статистики"""
+    try:
+        conn = sqlite3.connect(app.config['DATABASE'])
+        c = conn.cursor()
+        c.execute('SELECT * FROM global_stats WHERE id = 1')
+        result = c.fetchone()
+        conn.close()
+        
+        if result:
+            return {
+                'total_checked': result[1],
+                'valid_accounts': result[2],
+                'unique_users': result[3],
+                'last_updated': result[4]
+            }
+        return {'total_checked': 0, 'valid_accounts': 0, 'unique_users': 0, 'last_updated': datetime.now().isoformat()}
+    except Exception as e:
+        print(f"Error getting global stats: {e}")
+        return {'total_checked': 0, 'valid_accounts': 0, 'unique_users': 0, 'last_updated': datetime.now().isoformat()}
 
 def get_user_id():
     """Генерируем уникальный ID пользователя на основе IP и User-Agent"""
@@ -76,8 +143,25 @@ def save_user_session(user_id):
         ''', (user_id, user_id, now, now))
         conn.commit()
         conn.close()
+        
+        # Обновляем статистику уникальных пользователей
+        update_unique_users()
     except Exception as e:
         print(f"Error saving user session: {e}")
+
+def update_unique_users():
+    """Обновление количества уникальных пользователей"""
+    try:
+        conn = sqlite3.connect(app.config['DATABASE'])
+        c = conn.cursor()
+        c.execute('SELECT COUNT(*) FROM user_sessions')
+        count = c.fetchone()[0]
+        
+        c.execute('UPDATE global_stats SET unique_users = ? WHERE id = 1', (count,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Error updating unique users: {e}")
 
 def save_check_session(session_id, user_id, total, valid, results):
     """Сохраняем проверку с привязкой к пользователю"""
@@ -91,6 +175,9 @@ def save_check_session(session_id, user_id, total, valid, results):
         ''', (session_id, user_id, total, valid, datetime.now().isoformat(), json.dumps(results)))
         conn.commit()
         conn.close()
+        
+        # Обновляем глобальную статистику
+        update_global_stats(total, valid)
         return True
     except Exception as e:
         print(f"Error saving session: {e}")
@@ -149,7 +236,9 @@ class AdvancedRobloxChecker:
             'Origin': 'https://www.roblox.com',
             'Referer': 'https://www.roblox.com/',
         })
-        self.timeout = 20
+        self.timeout = 30
+        self.last_request_time = 0
+        self.request_delay = 2  # Базовая задержка между запросами
 
     def get_csrf_token(self, cookie):
         """Получение CSRF токена"""
@@ -164,6 +253,20 @@ class AdvancedRobloxChecker:
         except Exception as e:
             print(f"CSRF token error: {e}")
         return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=32))
+
+    def rate_limit(self):
+        """Контроль частоты запросов"""
+        current_time = time.time()
+        elapsed = current_time - self.last_request_time
+        if elapsed < self.request_delay:
+            time.sleep(self.request_delay - elapsed)
+        self.last_request_time = time.time()
+
+    def handle_rate_limit(self, wait_time=30):
+        """Обработка ограничения запросов"""
+        print(f"Rate limit detected, waiting {wait_time} seconds...")
+        time.sleep(wait_time)
+        self.request_delay += 1  # Увеличиваем задержку
 
     def check_single_cookie(self, cookie):
         """Проверка одной куки с улучшенной валидацией"""
@@ -183,10 +286,16 @@ class AdvancedRobloxChecker:
         headers = {
             'Cookie': f'.ROBLOSECURITY={cookie}',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'X-CSRF-TOKEN': self.get_csrf_token(cookie),
         }
         
         try:
+            # Получаем CSRF токен
+            csrf_token = self.get_csrf_token(cookie)
+            headers['X-CSRF-TOKEN'] = csrf_token
+            
+            # Контроль частоты запросов
+            self.rate_limit()
+            
             # Проверка аутентификации
             auth_response = self.session.get(
                 'https://users.roblox.com/v1/users/authenticated',
@@ -197,9 +306,33 @@ class AdvancedRobloxChecker:
             if auth_response.status_code == 401:
                 return self.error_result(cookie, 'Invalid cookie (Unauthorized)')
             elif auth_response.status_code == 403:
-                return self.error_result(cookie, 'Cookie blocked by Roblox (403)')
+                # Пробуем получить CSRF токен другим способом
+                try:
+                    csrf_response = self.session.post(
+                        'https://auth.roblox.com/v2/login',
+                        headers={'Cookie': f'.ROBLOSECURITY={cookie}'},
+                        timeout=5
+                    )
+                    if 'x-csrf-token' in csrf_response.headers:
+                        headers['X-CSRF-TOKEN'] = csrf_response.headers['x-csrf-token']
+                        auth_response = self.session.get(
+                            'https://users.roblox.com/v1/users/authenticated',
+                            headers=headers,
+                            timeout=self.timeout
+                        )
+                except:
+                    pass
+                
+                if auth_response.status_code == 403:
+                    return self.error_result(cookie, 'Cookie blocked by Roblox (403)')
             elif auth_response.status_code == 429:
-                return self.error_result(cookie, 'Rate limit exceeded (429)')
+                self.handle_rate_limit(30)
+                # Повторяем запрос после ожидания
+                auth_response = self.session.get(
+                    'https://users.roblox.com/v1/users/authenticated',
+                    headers=headers,
+                    timeout=self.timeout
+                )
             elif auth_response.status_code != 200:
                 return self.error_result(cookie, f'Auth failed: {auth_response.status_code}')
             
@@ -214,7 +347,7 @@ class AdvancedRobloxChecker:
             economy_data = self.get_economy_info(headers, user_id)
             premium_data = self.get_premium_status(headers, user_id)
             friends_data = self.get_friends_count(headers, user_id)
-            is_2fa_enabled = self.check_2fa_status(headers)
+            is_2fa_enabled = self.check_2fa_status(headers, user_id)
             
             # Дополнительная проверка валидности данных
             if not auth_data.get('name'):
@@ -269,6 +402,7 @@ class AdvancedRobloxChecker:
     def get_profile_info(self, headers, user_id):
         """Информация о профиле"""
         try:
+            self.rate_limit()
             response = self.session.get(
                 f'https://users.roblox.com/v1/users/{user_id}',
                 headers=headers,
@@ -279,14 +413,17 @@ class AdvancedRobloxChecker:
                 return {
                     'followers_count': data.get('followersCount', 0),
                     'following_count': data.get('followingsCount', 0),
+                    'description': data.get('description', ''),
+                    'is_banned': data.get('isBanned', False)
                 }
         except Exception as e:
             print(f"Profile info error: {e}")
-        return {'followers_count': 0, 'following_count': 0}
+        return {'followers_count': 0, 'following_count': 0, 'description': '', 'is_banned': False}
 
     def get_economy_info(self, headers, user_id):
         """Информация об экономике"""
         try:
+            self.rate_limit()
             response = self.session.get(
                 'https://economy.roblox.com/v1/users/currency',
                 headers=headers,
@@ -298,6 +435,9 @@ class AdvancedRobloxChecker:
                     'robux': data.get('robux', 0),
                     'pending_robux': data.get('pendingRobux', 0)
                 }
+            elif response.status_code == 429:
+                self.handle_rate_limit(30)
+                return self.get_economy_info(headers, user_id)
         except Exception as e:
             print(f"Economy info error: {e}")
         return {'robux': 0, 'pending_robux': 0}
@@ -305,6 +445,7 @@ class AdvancedRobloxChecker:
     def get_premium_status(self, headers, user_id):
         """Статус Premium"""
         try:
+            self.rate_limit()
             response = self.session.get(
                 f'https://premiumfeatures.roblox.com/v1/users/{user_id}/premium',
                 headers=headers,
@@ -316,6 +457,9 @@ class AdvancedRobloxChecker:
                     'isPremium': data.get('isPremium', False),
                     'status': 'Active' if data.get('isPremium') else 'Inactive'
                 }
+            elif response.status_code == 429:
+                self.handle_rate_limit(30)
+                return self.get_premium_status(headers, user_id)
         except Exception as e:
             print(f"Premium status error: {e}")
         return {'isPremium': False, 'status': 'Inactive'}
@@ -323,6 +467,7 @@ class AdvancedRobloxChecker:
     def get_friends_count(self, headers, user_id):
         """Количество друзей"""
         try:
+            self.rate_limit()
             response = self.session.get(
                 f'https://friends.roblox.com/v1/users/{user_id}/friends/count',
                 headers=headers,
@@ -331,19 +476,28 @@ class AdvancedRobloxChecker:
             if response.status_code == 200:
                 data = response.json()
                 return {'count': data.get('count', 0)}
+            elif response.status_code == 429:
+                self.handle_rate_limit(30)
+                return self.get_friends_count(headers, user_id)
         except Exception as e:
             print(f"Friends count error: {e}")
         return {'count': 0}
 
-    def check_2fa_status(self, headers):
+    def check_2fa_status(self, headers, user_id):
         """Проверка 2FA"""
         try:
+            self.rate_limit()
             response = self.session.get(
-                'https://accountsettings.roblox.com/v1/email',
+                f'https://twostepverification.roblox.com/v1/users/{user_id}/configuration',
                 headers=headers,
                 timeout=5
             )
-            return response.status_code == 200
+            if response.status_code == 200:
+                data = response.json()
+                return data.get('twoStepVerificationEnabled', False)
+            elif response.status_code == 429:
+                self.handle_rate_limit(30)
+                return self.check_2fa_status(headers, user_id)
         except Exception as e:
             print(f"2FA check error: {e}")
             return False
@@ -408,8 +562,8 @@ class AdvancedRobloxChecker:
         if not valid_cookies:
             return [self.error_result("", "No valid cookies found")]
         
-        # Ограничиваем количество одновременных проверок
-        max_workers = min(2, len(valid_cookies))  # Уменьшил для стабильности
+        # Ограничиваем количество одновременных проверок для избежания блокировки
+        max_workers = min(3, len(valid_cookies))
         
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_cookie = {
@@ -422,7 +576,7 @@ class AdvancedRobloxChecker:
                     result = future.result()
                     results.append(result)
                     # Задержка между запросами для избежания блокировки
-                    time.sleep(2)  # Увеличил задержку
+                    time.sleep(1.5)
                 except Exception as e:
                     cookie = future_to_cookie[future]
                     results.append(self.error_result(cookie, f"Check failed: {str(e)}"))
@@ -441,6 +595,15 @@ def index():
 def health_check():
     """Health check endpoint for Railway"""
     return jsonify({'status': 'healthy', 'timestamp': datetime.now().isoformat()})
+
+@app.route('/api/global_stats')
+def api_global_stats():
+    """API для получения глобальной статистики"""
+    try:
+        stats = get_global_stats()
+        return jsonify(stats)
+    except Exception as e:
+        return jsonify({'error': f'Stats error: {str(e)}'}), 500
 
 @app.route('/api/history')
 def api_history():
@@ -475,8 +638,8 @@ def api_check_cookies():
         if not cookies:
             return jsonify({'error': 'No valid cookies provided'}), 400
         
-        if len(cookies) > 25:
-            return jsonify({'error': 'Too many cookies. Maximum 25 per request.'}), 400
+        if len(cookies) > 3000:  # Увеличили лимит до 3000
+            return jsonify({'error': 'Too many cookies. Maximum 3000 per request.'}), 400
         
         # Используем многопоточную проверку
         results = checker.check_multiple_cookies(cookies)

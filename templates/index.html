@@ -17,7 +17,9 @@
     <div class="contact-menu" id="contactMenu">
         <div class="contact-header">
             <h3><i class="fas fa-envelope"></i> СВЯЗАТЬСЯ</h3>
-            <button class="close-contact" id="closeContact">&times;</button>
+            <button class="close-contact" id="closeContact">
+                <i class="fas fa-times"></i>
+            </button>
         </div>
         <div class="contact-options">
             <a href="mailto:support@neoncheck.com" class="contact-option">
@@ -52,20 +54,21 @@
                     <i class="fas fa-robot"></i>
                     <span class="logo-text">NEON<span class="logo-accent">CHECK</span></span>
                 </div>
+                
+                <!-- Навигация рядом с логотипом -->
+                <nav class="main-tabs">
+                    <div class="main-tab active" data-page="home">
+                        <i class="fas fa-home"></i> ГЛАВНАЯ
+                    </div>
+                    <div class="main-tab" data-page="history">
+                        <i class="fas fa-history"></i> ИСТОРИЯ
+                    </div>
+                </nav>
+                
                 <button class="menu-button" id="contactButton" title="Контакты">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
-
-            <!-- Вкладки навигации -->
-            <nav class="main-tabs">
-                <div class="main-tab active" data-page="home">
-                    <i class="fas fa-home"></i> ГЛАВНАЯ
-                </div>
-                <div class="main-tab" data-page="history">
-                    <i class="fas fa-history"></i> ИСТОРИЯ
-                </div>
-            </nav>
         </header>
 
         <!-- Секция главной страницы -->
@@ -77,10 +80,12 @@
                     <span class="title-neon">COOKIE CHECKER</span>
                 </h1>
                 <p class="cyber-description">Профессиональная проверка куки с расширенной аналитикой</p>
+                
+                <!-- Глобальная статистика -->
                 <div class="cyber-stats">
                     <div class="stat-item">
-                        <div class="stat-number" id="totalChecks">0</div>
-                        <div class="stat-label">Всего проверок</div>
+                        <div class="stat-number" id="totalChecked">0</div>
+                        <div class="stat-label">Всего проверено</div>
                     </div>
                     <div class="stat-item">
                         <div class="stat-number" id="validAccounts">0</div>
@@ -91,10 +96,17 @@
                         <div class="stat-label">Активных пользователей</div>
                     </div>
                 </div>
+                
+                <!-- Информационные строки -->
+                <div class="info-lines">
+                    <div class="info-line">> Без Dual Hook</div>
+                    <div class="info-line">> Быстро и надёжно</div>
+                    <div class="info-line">> Проверка 3000+ куки за раз</div>
+                </div>
             </section>
 
             <!-- Карточка ввода -->
-            <div class="cyber-card fade-in-up">
+            <div class="cyber-card-3d fade-in-up">
                 <div class="card-header">
                     <i class="fas fa-terminal"></i>
                     <h2>ПАНЕЛЬ УПРАВЛЕНИЯ</h2>
@@ -113,82 +125,177 @@
                     </div>
 
                     <div class="tab-content active" id="text-tab">
-                        <div class="input-group">
-                            <label class="cyber-label">
-                                <i class="fas fa-cookie-bite"></i> .ROBLOSECURITY COOKIES
-                            </label>
-                            <textarea class="cyber-textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_" rows="6"></textarea>
-                            <div class="input-hint">Максимум: 25 куки за проверку • Одна кука на строку</div>
-                        </div>
+                        <textarea 
+                            id="cookieInput" 
+                            placeholder="Вставьте куки файлы (до 3000 штук)...
+Пример: _|WARNING:-DO-NOT-SHARE-THIS..."
+                            rows="8"
+                        ></textarea>
                     </div>
-
+                    
                     <div class="tab-content" id="file-tab">
-                        <div class="file-upload-zone" id="fileUploadZone">
+                        <div class="file-upload-area" id="fileUploadArea">
                             <i class="fas fa-cloud-upload-alt"></i>
-                            <p>ПЕРЕТАЩИТЕ .TXT ФАЙЛ С КУКАМИ</p>
-                            <span class="file-hint">или нажмите для выбора</span>
-                            <input type="file" id="fileInput" accept=".txt" hidden>
+                            <p>Перетащите файл с куки или кликните для выбора</p>
+                            <input type="file" id="fileInput" accept=".txt,.json,.csv">
                         </div>
                     </div>
-
-                    <div class="check-button-container">
-                        <button class="cyber-button large" id="checkButton">
-                            <span class="btn-content">
-                                <i class="fas fa-shield-alt"></i>
-                                ЗАПУСТИТЬ ПРОВЕРКУ
-                            </span>
-                            <div class="btn-glow"></div>
+                    
+                    <div class="action-buttons">
+                        <button class="cyber-button-primary" id="startCheck">
+                            <i class="fas fa-play"></i>
+                            <span>НАЧАТЬ ПРОВЕРКУ</span>
+                        </button>
+                        <button class="cyber-button-secondary" id="clearInput">
+                            <i class="fas fa-trash"></i>
+                            <span>ОЧИСТИТЬ</span>
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- Контейнер для результатов -->
-            <div id="resultsContainer"></div>
+            <!-- Прогресс бар -->
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-header">
+                    <h3>ПРОВЕРКА В ПРОЦЕССЕ</h3>
+                    <div class="progress-stats">
+                        <span id="progressText">0/0</span>
+                        <span id="progressPercent">0%</span>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-details">
+                    <div class="detail-item">
+                        <span>Валидные:</span>
+                        <span id="validCount">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <span>Невалидные:</span>
+                        <span id="invalidCount">0</span>
+                    </div>
+                    <div class="detail-item">
+                        <span>Осталось:</span>
+                        <span id="remainingCount">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Результаты -->
+            <div class="results-container" id="resultsContainer">
+                <div class="results-header">
+                    <h3>РЕЗУЛЬТАТЫ ПРОВЕРКИ</h3>
+                    <div class="results-actions">
+                        <button class="cyber-button-small" id="downloadResults">
+                            <i class="fas fa-download"></i> СКАЧАТЬ
+                        </button>
+                        <button class="cyber-button-small" id="copyValid">
+                            <i class="fas fa-copy"></i> КОПИРОВАТЬ
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="results-summary">
+                    <div class="summary-item valid">
+                        <i class="fas fa-check-circle"></i>
+                        <div>
+                            <div class="summary-count" id="summaryValid">0</div>
+                            <div class="summary-label">Валидные</div>
+                        </div>
+                    </div>
+                    <div class="summary-item invalid">
+                        <i class="fas fa-times-circle"></i>
+                        <div>
+                            <div class="summary-count" id="summaryInvalid">0</div>
+                            <div class="summary-label">Невалидные</div>
+                        </div>
+                    </div>
+                    <div class="summary-item total">
+                        <i class="fas fa-chart-bar"></i>
+                        <div>
+                            <div class="summary-count" id="summaryTotal">0</div>
+                            <div class="summary-label">Всего</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="results-table-container">
+                    <table class="cyber-table">
+                        <thead>
+                            <tr>
+                                <th>Статус</th>
+                                <th>Имя пользователя</th>
+                                <th>ID</th>
+                                <th>Robux</th>
+                                <th>Premium</th>
+                                <th>Друзья</th>
+                                <th>Стоимость</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTable">
+                            <!-- Результаты будут здесь -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <!-- Секция истории -->
         <section id="historySection" class="page-section">
-            <div class="cyber-card">
-                <div class="card-header">
-                    <i class="fas fa-database"></i>
-                    <h2>ИСТОРИЯ ПРОВЕРОК</h2>
-                    <div class="pulse-dot"></div>
+            <div class="history-header fade-in-up">
+                <h2><i class="fas fa-history"></i> ИСТОРИЯ ПРОВЕРОК</h2>
+                <p>Ваши последние проверки и их результаты</p>
+            </div>
+
+            <div class="history-container">
+                <div class="history-stats">
+                    <div class="stat-card">
+                        <i class="fas fa-chart-line"></i>
+                        <div>
+                            <div class="stat-number" id="historyTotalChecks">0</div>
+                            <div class="stat-label">Всего проверок</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-cookie"></i>
+                        <div>
+                            <div class="stat-number" id="historyTotalCookies">0</div>
+                            <div class="stat-label">Всего куки</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-check-double"></i>
+                        <div>
+                            <div class="stat-number" id="historySuccessRate">0%</div>
+                            <div class="stat-label">Успешность</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="history-controls">
-                    <button class="cyber-button small" onclick="loadHistory()">
-                        <i class="fas fa-sync-alt"></i> ОБНОВИТЬ
-                    </button>
-                    <button class="cyber-button error small" onclick="clearAllHistory()">
-                        <i class="fas fa-trash"></i> ОЧИСТИТЬ ВСЁ
-                    </button>
-                </div>
-
-                <div id="historyContent">
-                    <!-- История будет загружена здесь -->
+                <div class="history-list" id="historyList">
+                    <!-- История будет здесь -->
                 </div>
             </div>
         </section>
     </div>
 
-    <!-- Модальное окно для просмотра результатов -->
-    <div id="resultsModal" class="modal">
-        <div class="modal-content cyber-card">
+    <!-- Модальное окно для деталей -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3><i class="fas fa-eye"></i> РЕЗУЛЬТАТЫ ПРОВЕРКИ</h3>
-                <button class="close-btn" onclick="closeModal()">&times;</button>
+                <h3>ДЕТАЛИ АККАУНТА</h3>
+                <button class="modal-close" id="modalClose">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <div class="modal-body" id="modalResults">
-                <!-- Результаты будут загружены здесь -->
+            <div class="modal-body" id="modalBody">
+                <!-- Детали будут здесь -->
             </div>
         </div>
     </div>
 
-    <!-- Уведомления -->
-    <div id="notificationContainer"></div>
-
-    <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>
