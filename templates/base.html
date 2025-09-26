@@ -6,8 +6,48 @@
     <title>{% block title %}Roblox Cookie Checker Pro{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Плавный переход */
+        .page-content {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.6s ease-in-out;
+        }
+        .page-content.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        
+        /* Предзагрузка страниц для плавных переходов */
+        .preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-primary);
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        .preloader.active {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
 </head>
 <body>
+    <div class="preloader" id="preloader">
+        <div class="cyber-loader">
+            <i class="fas fa-spinner fa-spin"></i>
+            <span>Загрузка...</span>
+        </div>
+    </div>
+    
     <div id="particles-js"></div>
     <div class="gradient-bg"></div>
     
@@ -18,34 +58,19 @@
             </div>
             <div class="nav-links">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('dashboard') }}" class="nav-link">
-                        <i class="fas fa-tachometer-alt"></i> Дашборд
-                    </a>
-                    <a href="{{ url_for('history') }}" class="nav-link">
-                        <i class="fas fa-history"></i> История
-                    </a>
-                    <a href="{{ url_for('profile') }}" class="nav-link">
-                        <i class="fas fa-user"></i> Профиль
-                    </a>
-                    <a href="{{ url_for('auth.logout') }}" class="nav-link">
-                        <i class="fas fa-sign-out-alt"></i> Выйти
-                    </a>
+                    <a href="{{ url_for('dashboard') }}" class="nav-link"> <i class="fas fa-tachometer-alt"></i> Дашборд</a>
+                    <a href="{{ url_for('history') }}" class="nav-link"> <i class="fas fa-history"></i> История</a>
+                    <a href="{{ url_for('profile') }}" class="nav-link"> <i class="fas fa-user"></i> Профиль</a>
+                    <a href="{{ url_for('auth.logout') }}" class="nav-link"> <i class="fas fa-sign-out-alt"></i> Выйти</a>
                 {% else %}
-                    <a href="{{ url_for('index') }}" class="nav-link">
-                        <i class="fas fa-home"></i> Главная
-                    </a>
-                    <a href="{{ url_for('login') }}"> class="nav-link">
-                        <i class="fas fa-sign-in-alt"></i> Войти
-                    </a>
-                    <a href="{{ url_for('auth.register') }}" class="nav-link">
-                        <i class="fas fa-user-plus"></i> Регистрация
-                    </a>
+                    <a href="{{ url_for('index') }}" class="nav-link"> <i class="fas fa-home"></i> Главная</a>
+                    <a href="{{ url_for('history') }}" class="nav-link"> <i class="fas fa-history"></i> История</a>
                 {% endif %}
             </div>
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container page-content active" id="mainContent">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -60,6 +85,55 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
+    <script>
+        // Улучшенная система плавных переходов
+        function navigateTo(url) {
+            const preloader = document.getElementById('preloader');
+            const mainContent = document.getElementById('mainContent');
+            
+            // Показываем прелоадер
+            preloader.classList.add('active');
+            
+            // Плавное исчезновение контента
+            mainContent.style.opacity = '0';
+            mainContent.style.transform = 'translateY(20px)';
+            
+            // Переход после анимации
+            setTimeout(() => {
+                window.location.href = url;
+            }, 600);
+        }
+
+        // Обработчики для всех внутренних ссылок
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (link && link.href && !link.href.startsWith('http') && 
+                !link.href.includes('#') && link.getAttribute('download') === null) {
+                e.preventDefault();
+                navigateTo(link.href);
+            }
+        });
+
+        // Плавное появление при загрузке страницы
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                document.getElementById('mainContent').classList.add('active');
+            }, 100);
+            
+            // Скрываем прелоадер
+            setTimeout(() => {
+                document.getElementById('preloader').classList.remove('active');
+            }, 500);
+        });
+
+        // Обработка кнопок браузера (назад/вперед)
+        window.addEventListener('pageshow', function(event) {
+            if (event.persisted) {
+                document.getElementById('preloader').classList.remove('active');
+                document.getElementById('mainContent').classList.add('active');
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

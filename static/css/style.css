@@ -502,6 +502,30 @@ body {
     }
 }
 
+.cyber-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    color: var(--neon-cyan);
+    font-size: 1.2rem;
+}
+
+.cyber-loader i {
+    font-size: 2rem;
+}
+
+/* Анимация пульсации для прелоадера */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.cyber-loader span {
+    animation: pulse 2s infinite;
+}
+
 @media (max-width: 480px) {
     .cyber-title {
         font-size: 2rem;
