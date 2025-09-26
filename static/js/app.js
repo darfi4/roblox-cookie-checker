@@ -3,11 +3,12 @@ let currentSessionId = null;
 let currentResults = [];
 let currentPage = 'home';
 let isChecking = false;
+let userStats = { total_checks: 0, total_cookies: 0, valid_cookies: 0, success_rate: 0 };
 
 // ==================== ИНИЦИАЛИЗАЦИЯ ====================
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
-    updateStats();
+    loadUserStats();
 });
 
 function initializeApp() {
@@ -16,11 +17,11 @@ function initializeApp() {
     initializeFileUpload();
     initializeContactMenu();
     initializeEventListeners();
+    setupServiceWorker();
 }
 
 // ==================== СИСТЕМА НАВИГАЦИИ ====================
 function initializeNavigation() {
-    // Обработчики для вкладок навигации
     document.querySelectorAll('.main-tab').forEach(tab => {
         tab.addEventListener('click', function() {
             const page = this.dataset.page;
@@ -56,134 +57,28 @@ function navigateTo(page) {
             // Специфичные действия для страниц
             if (page === 'history') {
                 loadHistory();
-            } else if (page === 'home') {
-                updateStats();
             }
         }, 50);
     }, 300);
 }
 
-// ==================== СИСТЕМА ВКЛАДОК ====================
-function initializeTabs() {
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const tab = this.dataset.tab;
-            switchTab(tab);
-        });
-    });
-}
-
-function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-    
-    document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-    document.getElementById(`${tab}-tab`).classList.add('active');
-}
-
-// ==================== ЗАГРУЗКА ФАЙЛОВ ====================
-function initializeFileUpload() {
-    const fileZone = document.getElementById('fileUploadZone');
-    const fileInput = document.getElementById('fileInput');
-
-    fileZone.addEventListener('click', () => fileInput.click());
-    
-    fileZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        fileZone.classList.add('dragover');
-    });
-    
-    fileZone.addEventListener('dragleave', () => {
-        fileZone.classList.remove('dragover');
-    });
-    
-    fileZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        fileZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length) {
-            handleFileSelect(e.dataTransfer.files[0]);
+// ==================== ЗАГРУЗКА СТАТИСТИКИ ====================
+async function loadUserStats() {
+    try {
+        const response = await fetch('/api/stats');
+        if (response.ok) {
+            userStats = await response.json();
+            updateStatsDisplay();
         }
-    });
-    
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length) {
-            handleFileSelect(e.target.files[0]);
-        }
-    });
-}
-
-function handleFileSelect(file) {
-    if (file.type !== 'text/plain' && !file.name.endsWith('.txt')) {
-        showNotification('Поддерживаются только .txt файлы', 'error');
-        return;
+    } catch (error) {
+        console.error('Error loading stats:', error);
     }
-
-    if (file.size > 1024 * 1024) { // 1MB limit
-        showNotification('Файл слишком большой (макс. 1MB)', 'error');
-        return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        document.getElementById('cookiesInput').value = e.target.result;
-        switchTab('text');
-        showNotification('Файл успешно загружен', 'success');
-    };
-    reader.onerror = function() {
-        showNotification('Ошибка чтения файла', 'error');
-    };
-    reader.readAsText(file);
 }
 
-// ==================== МЕНЮ КОНТАКТОВ ====================
-function initializeContactMenu() {
-    const contactButton = document.getElementById('contactButton');
-    const contactMenu = document.getElementById('contactMenu');
-    const closeContact = document.getElementById('closeContact');
-    const menuOverlay = document.getElementById('menuOverlay');
-
-    contactButton.addEventListener('click', toggleContactMenu);
-    closeContact.addEventListener('click', toggleContactMenu);
-    menuOverlay.addEventListener('click', toggleContactMenu);
-}
-
-function toggleContactMenu() {
-    const contactMenu = document.getElementById('contactMenu');
-    const menuOverlay = document.getElementById('menuOverlay');
-    
-    contactMenu.classList.toggle('active');
-    menuOverlay.classList.toggle('active');
-    document.body.style.overflow = contactMenu.classList.contains('active') ? 'hidden' : 'auto';
-}
-
-// ==================== ОСНОВНЫЕ ОБРАБОТЧИКИ ====================
-function initializeEventListeners() {
-    // Кнопка проверки
-    document.getElementById('checkButton').addEventListener('click', checkCookies);
-    
-    // Обработка Enter в текстовом поле
-    document.getElementById('cookiesInput').addEventListener('keydown', function(e) {
-        if (e.ctrlKey && e.key === 'Enter') {
-            checkCookies();
-        }
-    });
-    
-    // Закрытие модального окна
-    window.addEventListener('click', function(event) {
-        const modal = document.getElementById('resultsModal');
-        if (event.target === modal) {
-            closeModal();
-        }
-    });
-    
-    // Глобальные горячие клавиши
-    document.addEventListener('keydown', function(e) {
-        if (e.altKey && e.key === 'h') {
-            navigateTo('history');
-        } else if (e.altKey && e.key === 'm') {
-            navigateTo('home');
-        }
-    });
+function updateStatsDisplay() {
+    document.getElementById('totalChecks').textContent = userStats.total_checks;
+    document.getElementById('validAccounts').textContent = userStats.valid_cookies;
+    document.getElementById('activeUsers').textContent = userStats.success_rate.toFixed(1) + '%';
 }
 
 // ==================== ПРОВЕРКА КУКИ ====================
@@ -200,10 +95,10 @@ async function checkCookies() {
     
     const cookies = input.split('\n')
         .map(c => c.trim())
-        .filter(c => c && c.length > 50); // Basic validation
+        .filter(c => c && c.length > 100);
     
     if (cookies.length === 0) {
-        showNotification('Не найдено валидных куки', 'error');
+        showNotification('Не найдено валидных куки для проверки', 'error');
         return;
     }
     
@@ -232,15 +127,14 @@ async function checkCookies() {
             currentResults = data.results;
             currentSessionId = data.session_id;
             displayResults(data);
-            showNotification(
-                `Проверено: ${data.valid} валидных, ${data.invalid} невалидных`, 
-                data.valid > 0 ? 'success' : 'warning'
-            );
+            
+            const message = `Проверено: ${data.valid} валидных, ${data.invalid} невалидных`;
+            showNotification(message, data.valid > 0 ? 'success' : 'warning');
             
             // Обновляем статистику и историю
-            updateStats();
+            await loadUserStats();
             if (currentPage === 'history') {
-                loadHistory();
+                await loadHistory();
             }
         } else {
             throw new Error(data.error || `HTTP ${response.status}`);
@@ -285,7 +179,7 @@ function displayResults(data) {
             <div class="download-section">
                 <button class="cyber-button success large" onclick="downloadResults()">
                     <i class="fas fa-download"></i>
-                    СКАЧАТЬ АРХИВ (${validResults.length} куки)
+                    СКАЧАТЬ АРХИВ (${validResults.length})
                 </button>
                 <button class="cyber-button" onclick="viewCurrentResults()">
                     <i class="fas fa-eye"></i>
@@ -302,7 +196,7 @@ function displayResults(data) {
         html += createAccountCard(result, index + 1);
     });
     
-    // Невалидные куки (сворачиваемый список)
+    // Невалидные куки
     if (invalidResults.length > 0) {
         html += `
             <div class="cyber-card error fade-in-up">
@@ -743,6 +637,20 @@ function getNotificationColor(type) {
         'info': '#209cee'
     };
     return colors[type] || '#209cee';
+}
+
+
+// ==================== SERVICE WORKER ====================
+function setupServiceWorker() {
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js')
+            .then(registration => {
+                console.log('Service Worker registered');
+            })
+            .catch(error => {
+                console.log('Service Worker registration failed:', error);
+            });
+    }
 }
 
 // ==================== ГЛОБАЛЬНЫЕ ФУНКЦИИ ====================
