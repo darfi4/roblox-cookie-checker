@@ -6,12 +6,263 @@
     <title>Neon Cookie Checker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Стили для плавных переходов */
+        .page-transition {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        .page-transition.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .fade-out {
+            opacity: 0;
+            transform: translateY(-30px);
+            transition: all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+
+        /* Стили для меню */
+        .menu-button {
+            background: none;
+            border: none;
+            color: var(--neon-cyan);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            margin-left: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .menu-button:hover {
+            color: var(--neon-purple);
+            transform: scale(1.1);
+        }
+
+        .contact-menu {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 350px;
+            height: 100vh;
+            background: rgba(15, 15, 35, 0.95);
+            border-left: 2px solid var(--neon-purple);
+            z-index: 1001;
+            transition: right 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            backdrop-filter: blur(20px);
+            padding: 2rem;
+            box-shadow: -10px 0 30px rgba(139, 92, 246, 0.3);
+        }
+
+        .contact-menu.active {
+            right: 0;
+        }
+
+        .contact-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .contact-header h3 {
+            color: var(--neon-cyan);
+            margin: 0;
+        }
+
+        .contact-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .contact-option {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.2rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+
+        .contact-option:hover {
+            background: var(--neon-purple);
+            transform: translateX(8px);
+            border-color: var(--neon-purple);
+        }
+
+        .contact-option i {
+            font-size: 1.5rem;
+            color: var(--neon-cyan);
+            width: 30px;
+        }
+
+        .close-contact {
+            background: none;
+            border: none;
+            color: var(--neon-cyan);
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .close-contact:hover {
+            color: var(--neon-purple);
+            transform: scale(1.1);
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Улучшенное расположение кнопки проверки */
+        .check-button-container {
+            text-align: center;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--card-border);
+        }
+
+        /* Анимации для элементов */
+        @keyframes slideInFromBottom {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .cyber-hero {
+            animation: slideInFromBottom 1s ease 0.2s both;
+        }
+
+        .cyber-card {
+            animation: slideInFromBottom 1s ease 0.4s both;
+        }
+
+        /* Улучшенные табы */
+        .tab-selector {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1rem;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid transparent;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .tab-btn.active {
+            background: var(--neon-purple);
+            border-color: var(--neon-purple);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(139, 92, 246, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
     <canvas id="particlesCanvas"></canvas>
     
+    <!-- Оверлей для меню -->
+    <div class="overlay" id="menuOverlay"></div>
+    
+    <!-- Меню контактов -->
+    <div class="contact-menu" id="contactMenu">
+        <div class="contact-header">
+            <h3><i class="fas fa-envelope"></i> СВЯЗАТЬСЯ С РАЗРАБОТЧИКОМ</h3>
+            <button class="close-contact" id="closeContact">&times;</button>
+        </div>
+        <div class="contact-options">
+            <a href="mailto:support@neoncheck.com" class="contact-option">
+                <i class="fas fa-envelope"></i>
+                <div>
+                    <strong>Email поддержка</strong>
+                    <div>support@neoncheck.com</div>
+                </div>
+            </a>
+            <a href="https://t.me/neoncheck_support" target="_blank" class="contact-option">
+                <i class="fab fa-telegram"></i>
+                <div>
+                    <strong>Telegram канал</strong>
+                    <div>@neoncheck_support</div>
+                </div>
+            </a>
+            <a href="https://github.com/neoncheck/roblox-checker" target="_blank" class="contact-option">
+                <i class="fab fa-github"></i>
+                <div>
+                    <strong>GitHub репозиторий</strong>
+                    <div>github.com/neoncheck</div>
+                </div>
+            </a>
+            <a href="https://discord.gg/example" target="_blank" class="contact-option">
+                <i class="fab fa-discord"></i>
+                <div>
+                    <strong>Discord сервер</strong>
+                    <div>discord.gg/neoncheck</div>
+                </div>
+            </a>
+        </div>
+        <div style="margin-top: 2rem; padding: 1rem; background: rgba(139, 92, 246, 0.1); border-radius: 8px; border-left: 3px solid var(--neon-purple);">
+            <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);">
+                <i class="fas fa-info-circle"></i> По всем вопросам работы сервиса и предложениям по улучшению
+            </p>
+        </div>
+    </div>
+    
     <div class="cyber-container">
-        <!-- Хедер с меню -->
+        <!-- Хедер -->
         <header class="cyber-header">
             <div class="header-content">
                 <div class="cyber-logo">
@@ -27,6 +278,9 @@
                     <a href="{{ url_for('history') }}" class="nav-link" data-page="history">
                         <i class="fas fa-history"></i> ИСТОРИЯ
                     </a>
+                    <button class="menu-button" id="contactButton" title="Контакты разработчика">
+                        <i class="fas fa-bars"></i>
+                    </button>
                 </nav>
                 
                 <!-- Мобильное меню -->
@@ -40,7 +294,7 @@
             </div>
         </header>
 
-        <!-- Мобильное меню боковая панель -->
+        <!-- Мобильное меню -->
         <div class="mobile-sidebar" id="mobileSidebar">
             <div class="sidebar-header">
                 <div class="cyber-logo">
@@ -56,38 +310,38 @@
                 <a href="{{ url_for('history') }}" class="sidebar-link" data-page="history">
                     <i class="fas fa-history"></i> ИСТОРИЯ
                 </a>
-                <a href="mailto:developer@example.com" class="sidebar-link contact-link">
+                <a href="#" class="sidebar-link contact-link" id="mobileContact">
                     <i class="fas fa-envelope"></i> СВЯЗАТЬСЯ С РАЗРАБОТЧИКОМ
                 </a>
             </nav>
         </div>
 
-        <!-- Основной контент -->
-        <main class="cyber-main" id="mainContent">
+        <!-- Основной контент с плавными переходами -->
+        <main class="cyber-main page-transition active" id="mainContent">
             <!-- Герой секция -->
             <section class="cyber-hero">
                 <h1 class="cyber-title">
-                    <span class="title-gradient">COOKIE</span>
-                    <span class="title-neon">CHECKER</span>
+                    <span class="title-gradient">ROBLOX</span>
+                    <span class="title-neon">COOKIE CHECKER</span>
                 </h1>
-                <p class="cyber-description">Проверка Roblox куки в реальном времени с киберпанк стилем</p>
+                <p class="cyber-description">Профессиональная проверка куки с расширенной аналитикой и точными метриками</p>
             </section>
 
             <!-- Карточка ввода -->
             <div class="cyber-card">
                 <div class="card-header">
                     <i class="fas fa-terminal"></i>
-                    <h2>ВВОД ДАННЫХ</h2>
+                    <h2>ПАНЕЛЬ УПРАВЛЕНИЯ</h2>
                     <div class="pulse-dot"></div>
                 </div>
                 
                 <div class="input-section">
                     <div class="tab-selector">
                         <button class="tab-btn active" data-tab="text">
-                            <i class="fas fa-keyboard"></i> ТЕКСТ
+                            <i class="fas fa-keyboard"></i> ТЕКСТОВЫЙ ВВОД
                         </button>
                         <button class="tab-btn" data-tab="file">
-                            <i class="fas fa-file-import"></i> ФАЙЛ
+                            <i class="fas fa-file-upload"></i> ЗАГРУЗКА ФАЙЛА
                         </button>
                     </div>
 
@@ -96,31 +350,40 @@
                             <label class="cyber-label">
                                 <i class="fas fa-cookie-bite"></i> .ROBLOSECURITY COOKIES
                             </label>
-                            <textarea class="cyber-textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_"></textarea>
-                            <div class="input-hint">Максимум: 30 куки за проверку • Одна кука на строку</div>
+                            <textarea class="cyber-textarea" id="cookiesInput" placeholder="_|WARNING:-DO-NOT-SHARE-THIS.--Sharing-this-will-allow-someone-to-log-in-to-your-account-and-to-steal-your-ROBUX-and-items.|_
+
+Разместите каждую куку на новой строке. Максимум 25 куки за одну проверку." rows="8"></textarea>
+                            <div class="input-hint">
+                                <i class="fas fa-info-circle"></i> Поддерживается до 25 куки одновременно • Автоматическая валидация формата
+                            </div>
                         </div>
                     </div>
 
                     <div class="tab-content" id="file-tab">
                         <div class="file-upload-zone" id="fileUploadZone">
                             <i class="fas fa-cloud-upload-alt"></i>
-                            <p>ПЕРЕТАЩИТЕ .TXT ФАЙЛ СЮДА</p>
-                            <span class="file-hint">или нажмите для выбора</span>
+                            <p>ПЕРЕТАЩИТЕ ФАЙЛ .TXT С КУКАМИ</p>
+                            <span class="file-hint">Поддерживается только текстовый формат</span>
                             <input type="file" id="fileInput" accept=".txt" hidden>
+                        </div>
+                        <div class="input-hint" style="margin-top: 1rem;">
+                            <i class="fas fa-exclamation-triangle"></i> Файл должен содержать по одной куке на каждой строке
                         </div>
                     </div>
 
-                    <button class="cyber-button large" id="checkButton" onclick="checkCookies()">
-                        <span class="btn-content">
-                            <i class="fas fa-play"></i>
-                            ЗАПУСТИТЬ ПРОВЕРКУ
-                        </span>
-                        <div class="btn-glow"></div>
-                    </button>
+                    <div class="check-button-container">
+                        <button class="cyber-button large" id="checkButton" onclick="checkCookies()">
+                            <span class="btn-content">
+                                <i class="fas fa-shield-alt"></i>
+                                ЗАПУСТИТЬ ПРОВЕРКУ
+                            </span>
+                            <div class="btn-glow"></div>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Результаты -->
+            <!-- Контейнер для результатов -->
             <div id="resultsContainer"></div>
         </main>
     </div>
@@ -131,60 +394,95 @@
         let currentSessionId = null;
         let currentResults = [];
 
-        // Инициализация табов
+        // ==================== ПЛАВНАЯ НАВИГАЦИЯ ====================
+        function navigateTo(url) {
+            const mainContent = document.getElementById('mainContent');
+            
+            // Анимация исчезновения
+            mainContent.classList.remove('active');
+            mainContent.classList.add('fade-out');
+            
+            // Переход после анимации
+            setTimeout(() => {
+                window.location.href = url;
+            }, 600);
+        }
+
+        // Обработчики навигации
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('a[href*="/"]').forEach(link => {
+                if (link.href && !link.href.includes('mailto:') && !link.href.includes('tel:') && 
+                    !link.href.includes('http') && link.getAttribute('target') !== '_blank') {
+                    link.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        navigateTo(this.href);
+                    });
+                }
+            });
+        });
+
+        // ==================== МЕНЮ КОНТАКТОВ ====================
+        const contactButton = document.getElementById('contactButton');
+        const contactMenu = document.getElementById('contactMenu');
+        const closeContact = document.getElementById('closeContact');
+        const menuOverlay = document.getElementById('menuOverlay');
+        const mobileContact = document.getElementById('mobileContact');
+
+        function toggleContactMenu() {
+            const isActive = contactMenu.classList.toggle('active');
+            menuOverlay.classList.toggle('active');
+            document.body.style.overflow = isActive ? 'hidden' : 'auto';
+        }
+
+        contactButton.addEventListener('click', toggleContactMenu);
+        closeContact.addEventListener('click', toggleContactMenu);
+        mobileContact.addEventListener('click', function(e) {
+            e.preventDefault();
+            toggleContactMenu();
+            // Закрываем мобильное меню если открыто
+            document.getElementById('mobileSidebar').classList.remove('active');
+        });
+
+        menuOverlay.addEventListener('click', toggleContactMenu);
+
+        // Закрытие по ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                contactMenu.classList.remove('active');
+                menuOverlay.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }
+        });
+
+        // ==================== МОБИЛЬНОЕ МЕНЮ ====================
+        const menuToggle = document.getElementById('menuToggle');
+        const mobileSidebar = document.getElementById('mobileSidebar');
+        const closeMenu = document.getElementById('closeMenu');
+
+        function toggleMobileMenu() {
+            const isActive = mobileSidebar.classList.toggle('active');
+            menuOverlay.classList.toggle('active');
+            document.body.style.overflow = isActive ? 'hidden' : 'auto';
+        }
+
+        menuToggle.addEventListener('click', toggleMobileMenu);
+        closeMenu.addEventListener('click', toggleMobileMenu);
+
+        // ==================== СИСТЕМА ВКЛАДОК ====================
         document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const tab = e.target.dataset.tab;
+            btn.addEventListener('click', function() {
+                const tab = this.dataset.tab;
                 
                 // Обновляем активные табы
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 
-                e.target.classList.add('active');
+                this.classList.add('active');
                 document.getElementById(`${tab}-tab`).classList.add('active');
             });
         });
 
-        // Мобильное меню
-        const menuToggle = document.getElementById('menuToggle');
-        const mobileSidebar = document.getElementById('mobileSidebar');
-        const closeMenu = document.getElementById('closeMenu');
-
-        menuToggle.addEventListener('click', () => {
-            mobileSidebar.classList.add('active');
-            document.body.style.overflow = 'hidden';
-        });
-
-        closeMenu.addEventListener('click', () => {
-            mobileSidebar.classList.remove('active');
-            document.body.style.overflow = 'auto';
-        });
-
-        // Закрытие меню по клику вне его
-        document.addEventListener('click', (e) => {
-            if (!mobileSidebar.contains(e.target) && !menuToggle.contains(e.target)) {
-                mobileSidebar.classList.remove('active');
-                document.body.style.overflow = 'auto';
-            }
-        });
-
-        // Плавная навигация
-        document.querySelectorAll('.nav-link, .sidebar-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                if (link.href && !link.href.includes('mailto:')) {
-                    e.preventDefault();
-                    
-                    // Плавный переход
-                    document.getElementById('mainContent').style.opacity = '0';
-                    
-                    setTimeout(() => {
-                        window.location.href = link.href;
-                    }, 300);
-                }
-            });
-        });
-
-        // Обработка файлов
+        // ==================== ЗАГРУЗКА ФАЙЛОВ ====================
         const fileZone = document.getElementById('fileUploadZone');
         const fileInput = document.getElementById('fileInput');
 
@@ -215,24 +513,33 @@
 
         function handleFileSelect(file) {
             if (file.type !== 'text/plain' && !file.name.endsWith('.txt')) {
-                showNotification('Только .txt файлы поддерживаются', 'error');
+                showNotification('Поддерживаются только .txt файлы', 'error');
+                return;
+            }
+
+            if (file.size > 1024 * 1024) { // 1MB limit
+                showNotification('Файл слишком большой (макс. 1MB)', 'error');
                 return;
             }
 
             const reader = new FileReader();
             reader.onload = function(e) {
                 document.getElementById('cookiesInput').value = e.target.result;
+                // Переключаем на текстовую вкладку
                 document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
                 document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
                 document.querySelector('[data-tab="text"]').classList.add('active');
                 document.getElementById('text-tab').classList.add('active');
                 
-                showNotification('Файл успешно загружен', 'success');
+                showNotification(`Файл "${file.name}" успешно загружен`, 'success');
+            };
+            reader.onerror = function() {
+                showNotification('Ошибка чтения файла', 'error');
             };
             reader.readAsText(file);
         }
 
-        // Основная функция проверки
+        // ==================== ПРОВЕРКА КУКИ ====================
         async function checkCookies() {
             const input = document.getElementById('cookiesInput').value;
             const button = document.getElementById('checkButton');
@@ -243,18 +550,26 @@
             }
             
             const cookies = input.split('\n').filter(c => c.trim());
-            if (cookies.length > 30) {
-                showNotification('Максимум 30 куки за раз', 'error');
+            if (cookies.length === 0) {
+                showNotification('Не найдено валидных куки', 'error');
+                return;
+            }
+            
+            if (cookies.length > 25) {
+                showNotification('Максимум 25 куки за раз', 'error');
                 return;
             }
 
+            // Блокируем кнопку
             button.disabled = true;
             button.querySelector('.btn-content').innerHTML = '<i class="fas fa-spinner fa-spin"></i> ПРОВЕРКА...';
 
             try {
                 const response = await fetch('/check', {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
                     body: JSON.stringify({ cookies: cookies })
                 });
                 
@@ -264,30 +579,32 @@
                     currentResults = data.results;
                     currentSessionId = data.session_id;
                     displayResults(data);
-                    showNotification(`Проверено: ${data.valid} валидных, ${data.invalid} невалидных`, 'success');
+                    showNotification(`Проверка завершена! Валидных: ${data.valid}, Невалидных: ${data.invalid}`, 'success');
                 } else {
-                    throw new Error(data.error || 'Ошибка сервера');
+                    throw new Error(data.error || `Ошибка сервера: ${response.status}`);
                 }
                 
             } catch (error) {
-                showNotification('Ошибка: ' + error.message, 'error');
+                console.error('Check error:', error);
+                showNotification('Ошибка проверки: ' + error.message, 'error');
             } finally {
+                // Разблокируем кнопку
                 button.disabled = false;
-                button.querySelector('.btn-content').innerHTML = '<i class="fas fa-play"></i> ЗАПУСТИТЬ ПРОВЕРКУ';
+                button.querySelector('.btn-content').innerHTML = '<i class="fas fa-shield-alt"></i> ЗАПУСТИТЬ ПРОВЕРКУ';
             }
         }
 
-        // Отображение результатов
+        // ==================== ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ ====================
         function displayResults(data) {
             const container = document.getElementById('resultsContainer');
             const validResults = data.results.filter(r => r.valid);
             
             let html = `
-                <div class="results-summary">
+                <div class="results-summary fade-in">
                     <div class="stats-grid">
                         <div class="cyber-stat">
                             <div class="stat-value">${data.total}</div>
-                            <div class="stat-label">ВСЕГО</div>
+                            <div class="stat-label">ВСЕГО ПРОВЕРЕНО</div>
                         </div>
                         <div class="cyber-stat valid">
                             <div class="stat-value">${data.valid}</div>
@@ -305,19 +622,24 @@
                             <i class="fas fa-download"></i>
                             СКАЧАТЬ АРХИВ (${validResults.length} куки)
                         </button>
+                        <div class="download-info">
+                            <i class="fas fa-info-circle"></i> Архив содержит куки, отсортированные по категориям
+                        </div>
                     </div>
                     ` : ''}
                 </div>
             `;
             
+            // Детальная информация по валидным аккаунтам
             validResults.forEach((result, index) => {
                 html += createAccountCard(result, index + 1);
             });
             
+            // Невалидные куки
             const invalidResults = data.results.filter(r => !r.valid);
             if (invalidResults.length > 0) {
                 html += `
-                    <div class="cyber-card error">
+                    <div class="cyber-card error fade-in">
                         <div class="card-header" onclick="toggleInvalidResults()">
                             <i class="fas fa-exclamation-triangle"></i>
                             <h2>НЕВАЛИДНЫЕ КУКИ (${invalidResults.length})</h2>
@@ -326,8 +648,8 @@
                         <div class="invalid-list" id="invalidResults" style="display: none;">
                             ${invalidResults.map(result => `
                                 <div class="invalid-item">
-                                    <code>${result.cookie.substring(0, 60)}...</code>
-                                    <span class="error-text">${result.error}</span>
+                                    <div class="cookie-preview">${result.cookie.substring(0, 80)}...</div>
+                                    <div class="error-text">${result.error}</div>
                                 </div>
                             `).join('')}
                         </div>
@@ -336,22 +658,30 @@
             }
             
             container.innerHTML = html;
+            
+            // Анимация появления результатов
+            setTimeout(() => {
+                document.querySelectorAll('.fade-in').forEach(el => {
+                    el.style.animation = 'slideInFromBottom 0.6s ease forwards';
+                });
+            }, 100);
         }
 
-        // Создание карточки аккаунта
         function createAccountCard(result, index) {
             const acc = result.account_info;
             const eco = result.economy;
             const prem = result.premium;
+            const sec = result.security;
+            const social = result.social;
             
             return `
-                <div class="cyber-card account-card">
+                <div class="cyber-card account-card fade-in">
                     <div class="account-header">
                         <div class="account-index">#${index}</div>
                         <div class="account-main">
                             <h3 class="username">${acc.username}</h3>
                             <a href="${acc.profile_url}" target="_blank" class="profile-link">
-                                <i class="fas fa-external-link-alt"></i> Профиль
+                                <i class="fas fa-external-link-alt"></i> Открыть профиль
                             </a>
                         </div>
                         <div class="account-value">$${result.account_value}</div>
@@ -370,7 +700,7 @@
                             </div>
                             <div class="info-row">
                                 <span>Возраст аккаунта:</span>
-                                <span>${acc.account_age_years} лет</span>
+                                <span>${acc.account_age_years} лет (${acc.account_age_days} дней)</span>
                             </div>
                         </div>
                         
@@ -385,29 +715,27 @@
                                 <span>${eco.pending_robux.toLocaleString()}</span>
                             </div>
                             <div class="info-row">
-                                <span>Всего Robux:</span>
-                                <span class="total-robux">${eco.total_robux.toLocaleString()}</span>
+                                <span>Всего потрачено:</span>
+                                <span class="total-spent">${eco.all_time_spent.toLocaleString()} R$</span>
                             </div>
                         </div>
                         
                         <div class="info-group">
-                            <h4><i class="fas fa-shield-alt"></i> СТАТУС</h4>
+                            <h4><i class="fas fa-shield-alt"></i> СТАТУС И БЕЗОПАСНОСТЬ</h4>
                             <div class="info-row">
                                 <span>Premium:</span>
                                 <span class="status ${prem.isPremium ? 'success' : 'error'}">
-                                    ${prem.isPremium ? 'АКТИВНО' : 'НЕАКТИВНО'}
+                                    ${prem.isPremium ? '✅ АКТИВНО' : '❌ НЕАКТИВНО'}
                                 </span>
+                            </div>
+                            <div class="info-row">
+                                <span>Друзей:</span>
+                                <span>${social.friends_count}</span>
                             </div>
                             <div class="info-row">
                                 <span>2FA:</span>
-                                <span class="status ${result.security['2fa_enabled'] ? 'success' : 'error'}">
-                                    ${result.security['2fa_enabled'] ? 'ВКЛ' : 'ВЫКЛ'}
-                                </span>
-                            </div>
-                            <div class="info-row">
-                                <span>Телефон:</span>
-                                <span class="status ${result.security.phone_verified ? 'success' : 'error'}">
-                                    ${result.security.phone_verified ? 'ПРИВЯЗАН' : 'НЕТ'}
+                                <span class="status ${sec['2fa_enabled'] ? 'success' : 'error'}">
+                                    ${sec['2fa_enabled'] ? '✅ ВКЛЮЧЕНА' : '❌ ВЫКЛЮЧЕНА'}
                                 </span>
                             </div>
                         </div>
@@ -416,14 +744,17 @@
             `;
         }
 
-        // Скачивание результатов
+        // ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
         function downloadResults() {
-            if (!currentSessionId) return;
+            if (!currentSessionId) {
+                showNotification('Нет данных для скачивания', 'error');
+                return;
+            }
+            
             window.open(`/download/${currentSessionId}`, '_blank');
-            showNotification('Архив скачивается...', 'success');
+            showNotification('Архив готовится к скачиванию...', 'success');
         }
 
-        // Вспомогательные функции
         function toggleInvalidResults() {
             const content = document.getElementById('invalidResults');
             const toggle = document.getElementById('invalidToggle');
@@ -441,21 +772,21 @@
             const notification = document.createElement('div');
             notification.className = `cyber-notification ${type}`;
             notification.innerHTML = `
-                <i class="fas fa-${type === 'success' ? 'check' : 'exclamation-triangle'}"></i>
-                ${message}
+                <i class="fas fa-${type === 'success' ? 'check' : type === 'error' ? 'exclamation-triangle' : 'info'}-circle"></i>
+                <span>${message}</span>
             `;
             
             document.body.appendChild(notification);
             
-            setTimeout(() => notification.classList.add('show'), 10);
+            setTimeout(() => notification.classList.add('show'), 100);
             
             setTimeout(() => {
                 notification.classList.remove('show');
                 setTimeout(() => notification.remove(), 300);
-            }, 4000);
+            }, 5000);
         }
 
-        // Частицы
+        // ==================== ЧАСТИЦЫ ====================
         function initParticles() {
             const canvas = document.getElementById('particlesCanvas');
             const ctx = canvas.getContext('2d');
@@ -536,181 +867,53 @@
             animate();
         }
 
-        // Инициализация
+        // ==================== ИНИЦИАЛИЗАЦИЯ ====================
         document.addEventListener('DOMContentLoaded', () => {
             initParticles();
+            
             // Плавное появление контента
             setTimeout(() => {
-                document.getElementById('mainContent').style.opacity = '1';
-            }, 100);
+                document.getElementById('mainContent').classList.add('active');
+            }, 200);
+            
+            // Добавляем стили для уведомлений
+            const notificationStyles = document.createElement('style');
+            notificationStyles.textContent = `
+                .cyber-notification {
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    padding: 1rem 1.5rem;
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
+                    border-radius: 8px;
+                    color: white;
+                    font-weight: 600;
+                    z-index: 1002;
+                    transform: translateX(100%);
+                    transition: transform 0.3s ease;
+                    backdrop-filter: blur(10px);
+                    max-width: 400px;
+                }
+                
+                .cyber-notification.show {
+                    transform: translateX(0);
+                }
+                
+                .cyber-notification.success {
+                    border-color: var(--success);
+                }
+                
+                .cyber-notification.error {
+                    border-color: var(--error);
+                }
+                
+                .cyber-notification i {
+                    margin-right: 0.5rem;
+                }
+            `;
+            document.head.appendChild(notificationStyles);
         });
     </script>
-
-    <style>
-        /* Стили для улучшенной навигации */
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-        }
-
-        .desktop-nav {
-            display: flex;
-            gap: 1rem;
-        }
-
-        @media (max-width: 768px) {
-            .desktop-nav {
-                display: none;
-            }
-        }
-
-        .nav-link {
-            padding: 0.8rem 1.5rem;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid var(--card-border);
-            border-radius: 5px;
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: all 0.3s ease;
-        }
-
-        .nav-link:hover,
-        .nav-link.active {
-            background: var(--neon-purple);
-            border-color: var(--neon-purple);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        /* Мобильное меню */
-        .mobile-menu {
-            display: none;
-        }
-
-        @media (max-width: 768px) {
-            .mobile-menu {
-                display: block;
-            }
-        }
-
-        .menu-toggle {
-            background: none;
-            border: none;
-            color: var(--neon-cyan);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .menu-toggle span {
-            display: block;
-            width: 25px;
-            height: 3px;
-            background: var(--neon-cyan);
-            transition: all 0.3s ease;
-        }
-
-        .mobile-sidebar {
-            position: fixed;
-            top: 0;
-            right: -100%;
-            width: 300px;
-            height: 100vh;
-            background: var(--darker-bg);
-            border-left: 1px solid var(--neon-purple);
-            z-index: 1000;
-            transition: right 0.3s ease;
-            backdrop-filter: blur(20px);
-        }
-
-        .mobile-sidebar.active {
-            right: 0;
-        }
-
-        .sidebar-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border-bottom: 1px solid var(--card-border);
-        }
-
-        .close-menu {
-            background: none;
-            border: none;
-            color: var(--neon-cyan);
-            font-size: 2rem;
-            cursor: pointer;
-        }
-
-        .sidebar-nav {
-            display: flex;
-            flex-direction: column;
-            padding: 1rem;
-        }
-
-        .sidebar-link {
-            padding: 1rem;
-            color: var(--text-secondary);
-            text-decoration: none;
-            border-radius: 5px;
-            margin-bottom: 0.5rem;
-            transition: all 0.3s ease;
-        }
-
-        .sidebar-link:hover,
-        .sidebar-link.active {
-            background: var(--neon-purple);
-            color: white;
-        }
-
-        .contact-link {
-            background: var(--neon-cyan);
-            color: white !important;
-            margin-top: 1rem;
-        }
-
-        .contact-link:hover {
-            background: var(--neon-purple);
-        }
-
-        /* Плавные переходы */
-        .cyber-main {
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        /* Анимации */
-        @keyframes slideIn {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        .fade-in {
-            animation: fadeIn 0.5s ease;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
 </body>
 </html>

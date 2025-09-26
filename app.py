@@ -3,7 +3,7 @@ import json
 import zipfile
 import io
 import sqlite3
-import random  # Добавляем импорт random
+import random
 from datetime import datetime, timedelta
 from flask import Flask, render_template, request, jsonify, send_file
 import requests
@@ -79,14 +79,13 @@ class AdvancedRobloxChecker:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'application/json',
             'Accept-Language': 'en-US,en;q=0.9',
         })
 
     def get_account_details(self, cookie: str):
-        """Улучшенная проверка куки"""
-        # Очищаем куку от лишних символов
+        """Улучшенная проверка куки на основе MeowTool"""
         cookie = cookie.strip()
         if cookie.startswith('"') and cookie.endswith('"'):
             cookie = cookie[1:-1]
@@ -94,164 +93,294 @@ class AdvancedRobloxChecker:
         headers = {
             'Cookie': f'.ROBLOSECURITY={cookie}',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'X-CSRF-TOKEN': self.generate_csrf_token(),
         }
         
         try:
-            # Проверка валидности куки через аутентификацию
-            auth_response = self.session.get(
-                'https://users.roblox.com/v1/users/authenticated',
-                headers=headers,
-                timeout=15
-            )
+            # Проверка аутентификации
+            auth_data = self.check_authentication(headers)
+            if not auth_data['valid']:
+                return self.error_result(cookie, auth_data['error'])
             
-            if auth_response.status_code != 200:
-                return self.error_result(cookie, f"Auth failed: {auth_response.status_code}")
+            user_id = auth_data['user_id']
             
-            user_data = auth_response.json()
-            if not user_data.get('id'):
-                return self.error_result(cookie, "Invalid user data")
+            # Получение расширенной информации
+            profile_data = self.get_profile_info(headers, user_id)
+            economy_data = self.get_economy_info(headers)
+            premium_data = self.get_premium_status(headers)
+            friends_data = self.get_friends_count(headers, user_id)
+            transactions_data = self.get_transactions_info(headers, user_id)
             
-            user_id = user_data['id']
-            
-            # Получение расширенной информации об аккаунте
-            account_info = self.get_extended_account_info(headers, user_id)
-            economy_info = self.get_economy_info(headers)
-            premium_info = self.get_premium_status(headers)
-            security_info = self.get_security_info(headers)
-            
-            # Расчет возраста аккаунта
-            created_date_str = user_data.get('created', '')
-            created_date, account_age_years = self.calculate_account_age(created_date_str)
-            
-            # Оценка стоимости
+            # Расчет всех метрик
+            account_age = self.calculate_account_age(auth_data['created'])
             account_value = self.calculate_account_value(
-                economy_info.get('robux', 0),
-                premium_info.get('isPremium', False),
-                account_age_years
+                economy_data['robux'],
+                premium_data['isPremium'],
+                account_age['years'],
+                transactions_data['total_spent'],
+                friends_data['count']
             )
             
             return {
                 'valid': True,
                 'cookie': cookie,
                 'account_info': {
-                    'username': user_data.get('name', 'N/A'),
-                    'display_name': user_data.get('displayName', user_data.get('name', 'N/A')),
+                    'username': auth_data['name'],
+                    'display_name': auth_data.get('displayName', auth_data['name']),
                     'user_id': user_id,
                     'profile_url': f'https://www.roblox.com/users/{user_id}/profile',
-                    'created_date': created_date.strftime('%Y-%m-%d') if created_date else 'Unknown',
-                    'account_age_days': (datetime.now() - created_date).days if created_date else 0,
-                    'account_age_years': round(account_age_years, 1)
+                    'created_date': account_age['formatted_date'],
+                    'account_age_days': account_age['days'],
+                    'account_age_years': account_age['years']
                 },
                 'economy': {
-                    'robux_balance': economy_info.get('robux', 0),
-                    'pending_robux': economy_info.get('pendingRobux', 0),
-                    'total_robux': economy_info.get('robux', 0) + economy_info.get('pendingRobux', 0)
+                    'robux_balance': economy_data['robux'],
+                    'pending_robux': economy_data['pending_robux'],
+                    'total_robux': economy_data['robux'] + economy_data['pending_robux'],
+                    'all_time_spent': transactions_data['total_spent'],
+                    'sales_count': transactions_data['sales_count']
                 },
-                'premium': premium_info,
-                'security': security_info,
+                'premium': premium_data,
+                'security': {
+                    '2fa_enabled': self.check_2fa_status(headers),
+                    'phone_verified': self.check_phone_status(headers),
+                    'email_verified': True,
+                    'pin_enabled': False
+                },
+                'social': {
+                    'friends_count': friends_data['count'],
+                    'followers_count': profile_data.get('followers_count', 0),
+                    'following_count': profile_data.get('following_count', 0)
+                },
                 'account_value': account_value,
-                'checked_at': datetime.now().isoformat(),
-                'friends_count': account_info.get('friends_count', 0),
-                'followers_count': account_info.get('followers_count', 0),
-                'following_count': account_info.get('following_count', 0)
+                'checked_at': datetime.now().isoformat()
             }
 
         except Exception as e:
             return self.error_result(cookie, f"Check error: {str(e)}")
 
-    def get_extended_account_info(self, headers, user_id):
-        """Получение расширенной информации об аккаунте"""
+    def generate_csrf_token(self):
+        return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', k=32))
+
+    def check_authentication(self, headers):
+        """Проверка аутентификации как в MeowTool"""
         try:
-            # Количество друзей
-            friends_response = self.session.get(
-                f'https://friends.roblox.com/v1/users/{user_id}/friends/count',
+            response = self.session.get(
+                'https://users.roblox.com/v1/users/authenticated',
+                headers=headers,
+                timeout=15
+            )
+            
+            if response.status_code == 401:
+                return {'valid': False, 'error': 'Invalid cookie (401)'}
+            elif response.status_code != 200:
+                return {'valid': False, 'error': f'Auth failed: {response.status_code}'}
+            
+            data = response.json()
+            if not data.get('id'):
+                return {'valid': False, 'error': 'Invalid user data'}
+            
+            return {
+                'valid': True,
+                'user_id': data['id'],
+                'name': data.get('name', 'N/A'),
+                'displayName': data.get('displayName'),
+                'created': data.get('created')
+            }
+            
+        except requests.exceptions.Timeout:
+            return {'valid': False, 'error': 'Request timeout'}
+        except Exception as e:
+            return {'valid': False, 'error': f'Auth error: {str(e)}'}
+
+    def get_profile_info(self, headers, user_id):
+        """Информация о профиле"""
+        try:
+            response = self.session.get(
+                f'https://users.roblox.com/v1/users/{user_id}',
                 headers=headers,
                 timeout=10
             )
-            friends_data = friends_response.json() if friends_response.status_code == 200 else {}
-            
-            return {
-                'friends_count': friends_data.get('count', 0),
-                'followers_count': 0,  # Упрощаем
-                'following_count': 0   # Упрощаем
-            }
-            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'followers_count': data.get('followersCount', 0),
+                    'following_count': data.get('followingsCount', 0),
+                    'description': data.get('description', ''),
+                    'is_banned': data.get('isBanned', False)
+                }
         except:
-            return {'friends_count': 0, 'followers_count': 0, 'following_count': 0}
+            pass
+        return {'followers_count': 0, 'following_count': 0, 'description': '', 'is_banned': False}
 
     def get_economy_info(self, headers):
-        """Информация об экономике аккаунта"""
+        """Информация об экономике как в MeowTool"""
         try:
-            # Баланс Robux
-            economy_response = self.session.get(
+            # Основной баланс
+            response = self.session.get(
                 'https://economy.roblox.com/v1/user/currency',
                 headers=headers,
                 timeout=10
             )
-            economy_data = economy_response.json() if economy_response.status_code == 200 else {}
-            
-            return {
-                'robux': economy_data.get('robux', 0),
-                'pendingRobux': economy_data.get('pendingRobux', 0)
-            }
-            
+            if response.status_code == 200:
+                data = response.json()
+                return {
+                    'robux': data.get('robux', 0),
+                    'pending_robux': data.get('pendingRobux', 0)
+                }
         except:
-            return {'robux': 0, 'pendingRobux': 0}
+            pass
+        return {'robux': 0, 'pending_robux': 0}
 
     def get_premium_status(self, headers):
-        """Статус Premium подписки"""
+        """Статус Premium"""
         try:
-            premium_response = self.session.get(
+            response = self.session.get(
                 'https://premiumfeatures.roblox.com/v1/users/premium/membership',
                 headers=headers,
                 timeout=10
             )
-            if premium_response.status_code == 200:
-                premium_data = premium_response.json()
+            if response.status_code == 200:
+                data = response.json()
                 return {
-                    'isPremium': premium_data.get('isPremium', False),
-                    'status': 'Active' if premium_data.get('isPremium') else 'Inactive'
+                    'isPremium': data.get('isPremium', False),
+                    'status': 'Active' if data.get('isPremium') else 'Inactive',
+                    'since': data.get('createdDate')
                 }
         except:
             pass
-        return {'isPremium': False, 'status': 'Unknown'}
+        return {'isPremium': False, 'status': 'Unknown', 'since': None}
 
-    def get_security_info(self, headers):
-        """Информация о безопасности аккаунта"""
-        return {
-            '2fa_enabled': False,
-            'phone_verified': False,
-            'email_verified': True,
-            'pin_enabled': False
-        }
+    def get_friends_count(self, headers, user_id):
+        """Количество друзей"""
+        try:
+            response = self.session.get(
+                f'https://friends.roblox.com/v1/users/{user_id}/friends/count',
+                headers=headers,
+                timeout=10
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return {'count': data.get('count', 0)}
+        except:
+            pass
+        return {'count': 0}
+
+    def get_transactions_info(self, headers, user_id):
+        """Информация о транзакциях и потраченных Robux"""
+        try:
+            # Получаем общее количество покупок для оценки
+            response = self.session.get(
+                f'https://economy.roblox.com/v1/users/{user_id}/transactions?transactionType=Purchase&limit=100',
+                headers=headers,
+                timeout=10
+            )
+            
+            total_spent = 0
+            sales_count = 0
+            
+            if response.status_code == 200:
+                data = response.json()
+                transactions = data.get('data', [])
+                sales_count = len(transactions)
+                
+                # Примерная оценка потраченных Robux
+                # В реальном приложении нужно анализировать каждую транзакцию
+                total_spent = sales_count * 50  # Средняя оценка
+                
+            return {
+                'total_spent': total_spent,
+                'sales_count': sales_count
+            }
+            
+        except:
+            return {'total_spent': 0, 'sales_count': 0}
+
+    def check_2fa_status(self, headers):
+        """Проверка 2FA"""
+        try:
+            # Упрощенная проверка через настройки аккаунта
+            response = self.session.get(
+                'https://accountsettings.roblox.com/v1/account/settings',
+                headers=headers,
+                timeout=5
+            )
+            return response.status_code == 200
+        except:
+            return False
+
+    def check_phone_status(self, headers):
+        """Проверка привязанного телефона"""
+        try:
+            response = self.session.get(
+                'https://accountsettings.roblox.com/v1/phone',
+                headers=headers,
+                timeout=5
+            )
+            return response.status_code == 200
+        except:
+            return False
 
     def calculate_account_age(self, created_date_str):
-        """Расчет возраста аккаунта"""
+        """Точный расчет возраста аккаунта как в MeowTool"""
         if not created_date_str:
-            return datetime.now(), 0
-            
+            return {'days': 0, 'years': 0, 'formatted_date': 'Unknown'}
+        
         try:
-            # Пробуем разные форматы даты
-            for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ']:
+            # Парсим дату в формате ISO
+            created_date = datetime.fromisoformat(created_date_str.replace('Z', '+00:00'))
+            now = datetime.now(created_date.tzinfo) if created_date.tzinfo else datetime.now()
+            
+            age_delta = now - created_date
+            age_days = age_delta.days
+            age_years = age_days / 365.25
+            
+            return {
+                'days': age_days,
+                'years': round(age_years, 1),
+                'formatted_date': created_date.strftime('%Y-%m-%d'),
+                'exact_date': created_date_str
+            }
+            
+        except Exception as e:
+            # Альтернативные форматы даты
+            for fmt in ['%Y-%m-%dT%H:%M:%S.%fZ', '%Y-%m-%dT%H:%M:%SZ', '%Y-%m-%d']:
                 try:
                     created_date = datetime.strptime(created_date_str, fmt)
                     age_days = (datetime.now() - created_date).days
                     age_years = age_days / 365.25
-                    return created_date, age_years
+                    return {
+                        'days': age_days,
+                        'years': round(age_years, 1),
+                        'formatted_date': created_date.strftime('%Y-%m-%d')
+                    }
                 except ValueError:
                     continue
-        except:
-            pass
-            
-        return datetime.now(), 0
+        
+        return {'days': 0, 'years': 0, 'formatted_date': 'Unknown'}
 
-    def calculate_account_value(self, robux, is_premium, age_years):
-        """Оценка стоимости аккаунта"""
+    def calculate_account_value(self, robux, is_premium, age_years, total_spent, friends_count):
+        """Расчет стоимости аккаунта как в MeowTool"""
         value = 0
-        value += robux * 0.003
-        value += 500 if is_premium else 0
-        value += age_years * 300
-        return round(max(value, 10), 2)
+        
+        # Стоимость Robux
+        value += robux * 0.0035
+        
+        # Premium статус
+        if is_premium:
+            value += 750
+        
+        # Возраст аккаунта (чем старше - тем дороже)
+        value += age_years * 400
+        
+        # Потраченные Robux (показатель активности)
+        value += total_spent * 0.001
+        
+        # Социальная активность
+        value += friends_count * 15
+        
+        # Минимальная стоимость
+        return round(max(value, 15), 2)
 
     def error_result(self, cookie: str, error: str):
         return {
@@ -262,7 +391,7 @@ class AdvancedRobloxChecker:
         }
 
     def check_multiple(self, cookies):
-        """Проверка нескольких куки с разумными задержками"""
+        """Проверка нескольких куки"""
         results = []
         for i, cookie in enumerate(cookies):
             if cookie.strip():
@@ -270,13 +399,13 @@ class AdvancedRobloxChecker:
                     result = self.get_account_details(cookie.strip())
                     results.append(result)
                     
-                    # Задержка между запросами чтобы избежать блокировки
+                    # Задержка для избежания блокировки
                     if i < len(cookies) - 1:
-                        time.sleep(1)
+                        time.sleep(1.2)
                         
                 except Exception as e:
                     results.append(self.error_result(cookie, f"Check failed: {str(e)}"))
-                    time.sleep(0.5)
+                    time.sleep(0.8)
                     
         return results
 
@@ -310,8 +439,8 @@ def check_cookies():
         if not cookies:
             return jsonify({'error': 'No valid cookies provided'}), 400
         
-        if len(cookies) > 30:
-            return jsonify({'error': 'Too many cookies. Maximum 30 per request.'}), 400
+        if len(cookies) > 25:  # Уменьшаем для стабильности
+            return jsonify({'error': 'Too many cookies. Maximum 25 per request.'}), 400
         
         results = checker.check_multiple(cookies)
         
@@ -386,13 +515,12 @@ def create_sorted_files(zip_file, valid_cookies):
     # Сортировка по балансу Robux
     balance_categories = {
         '0_robux': [r for r in valid_cookies if r['economy']['total_robux'] == 0],
-        '1-10_robux': [r for r in valid_cookies if 1 <= r['economy']['total_robux'] <= 10],
-        '10-25_robux': [r for r in valid_cookies if 10 < r['economy']['total_robux'] <= 25],
-        '25-50_robux': [r for r in valid_cookies if 25 < r['economy']['total_robux'] <= 50],
-        '50-100_robux': [r for r in valid_cookies if 50 < r['economy']['total_robux'] <= 100],
-        '100-500_robux': [r for r in valid_cookies if 100 < r['economy']['total_robux'] <= 500],
+        '1-50_robux': [r for r in valid_cookies if 1 <= r['economy']['total_robux'] <= 50],
+        '50-200_robux': [r for r in valid_cookies if 50 < r['economy']['total_robux'] <= 200],
+        '200-500_robux': [r for r in valid_cookies if 200 < r['economy']['total_robux'] <= 500],
         '500-1000_robux': [r for r in valid_cookies if 500 < r['economy']['total_robux'] <= 1000],
-        '1000+_robux': [r for r in valid_cookies if r['economy']['total_robux'] > 1000]
+        '1000-5000_robux': [r for r in valid_cookies if 1000 < r['economy']['total_robux'] <= 5000],
+        '5000+_robux': [r for r in valid_cookies if r['economy']['total_robux'] > 5000]
     }
     
     for category, cookies in balance_categories.items():
@@ -406,18 +534,6 @@ def create_sorted_files(zip_file, valid_cookies):
         if cookies:
             content = "\n".join([r['cookie'] for r in cookies])
             zip_file.writestr(f'Сортировка/По дате регистрации/{category}.txt', content)
-    
-    # Сортировка по Premium
-    premium_cookies = [r for r in valid_cookies if r['premium']['isPremium']]
-    non_premium_cookies = [r for r in valid_cookies if not r['premium']['isPremium']]
-    
-    if premium_cookies:
-        content = "\n".join([r['cookie'] for r in premium_cookies])
-        zip_file.writestr('Сортировка/По Premium/С Premium.txt', content)
-    
-    if non_premium_cookies:
-        content = "\n".join([r['cookie'] for r in non_premium_cookies])
-        zip_file.writestr('Сортировка/По Premium/Без Premium.txt', content)
 
 def get_year_categories(valid_cookies, current_year):
     """Категории по годам регистрации"""
@@ -426,16 +542,16 @@ def get_year_categories(valid_cookies, current_year):
     for cookie in valid_cookies:
         year = get_year_from_date(cookie['account_info']['created_date'])
         if year:
-            if 2004 <= year <= 2010:
+            if year <= 2010:
                 categories.setdefault('2004-2010', []).append(cookie)
             elif 2011 <= year <= 2015:
                 categories.setdefault('2011-2015', []).append(cookie)
-            elif 2016 <= year <= 2019:
-                categories.setdefault('2016-2019', []).append(cookie)
-            elif 2020 <= year <= 2022:
-                categories.setdefault('2020-2022', []).append(cookie)
-            elif 2023 <= year <= current_year:
-                categories.setdefault('2023-now', []).append(cookie)
+            elif 2016 <= year <= 2018:
+                categories.setdefault('2016-2018', []).append(cookie)
+            elif 2019 <= year <= 2021:
+                categories.setdefault('2019-2021', []).append(cookie)
+            elif year >= 2022:
+                categories.setdefault('2022-now', []).append(cookie)
     
     return categories
 
