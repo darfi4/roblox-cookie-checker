@@ -11,7 +11,6 @@ import time
 import re
 import asyncio
 import aiohttp
-from aiohttp import TCPConnector, ClientSession
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
@@ -100,22 +99,8 @@ class AdvancedRobloxChecker:
                 ) as response:
                     if 'x-csrf-token' in response.headers:
                         return response.headers['x-csrf-token']
-        except:
-            pass
-        return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=32))
-
-    def get_csrf_token(self, cookie):
-        """Синхронное получение CSRF токена"""
-        try:
-            response = self.session.post(
-                'https://auth.roblox.com/v2/login',
-                headers={'Cookie': f'.ROBLOSECURITY={cookie}'},
-                timeout=10
-            )
-            if 'x-csrf-token' in response.headers:
-                return response.headers['x-csrf-token']
-        except:
-            pass
+        except Exception as e:
+            print(f"CSRF token error: {e}")
         return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=32))
 
     async def check_cookie_async(self, cookie):
@@ -124,10 +109,12 @@ class AdvancedRobloxChecker:
         if cookie.startswith('"') and cookie.endswith('"'):
             cookie = cookie[1:-1]
         
+        csrf_token = await self.get_csrf_token_async(cookie)
+        
         headers = {
             'Cookie': f'.ROBLOSECURITY={cookie}',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'X-CSRF-TOKEN': await self.get_csrf_token_async(cookie),
+            'X-CSRF-TOKEN': csrf_token,
         }
         
         try:
@@ -150,24 +137,23 @@ class AdvancedRobloxChecker:
                     
                     user_id = auth_data['id']
                     
-                    # Получение информации с использованием asyncio.gather для параллельных запросов
-                    profile_data, economy_data, premium_data, friends_data = await asyncio.gather(
+                    # Параллельные запросы для получения информации
+                    tasks = [
                         self.get_profile_info_async(session, headers, user_id),
                         self.get_economy_info_async(session, headers, user_id),
                         self.get_premium_status_async(session, headers, user_id),
                         self.get_friends_count_async(session, headers, user_id),
-                        return_exceptions=True
-                    )
+                        self.check_2fa_status_async(session, headers)
+                    ]
                     
-                    # Обработка исключений
-                    if isinstance(profile_data, Exception):
-                        profile_data = {'followers_count': 0, 'following_count': 0}
-                    if isinstance(economy_data, Exception):
-                        economy_data = {'robux': 0, 'pending_robux': 0}
-                    if isinstance(premium_data, Exception):
-                        premium_data = {'isPremium': False, 'status': 'Inactive'}
-                    if isinstance(friends_data, Exception):
-                        friends_data = {'count': 0}
+                    results = await asyncio.gather(*tasks, return_exceptions=True)
+                    
+                    # Обработка результатов
+                    profile_data = results[0] if not isinstance(results[0], Exception) else {'followers_count': 0, 'following_count': 0}
+                    economy_data = results[1] if not isinstance(results[1], Exception) else {'robux': 0, 'pending_robux': 0}
+                    premium_data = results[2] if not isinstance(results[2], Exception) else {'isPremium': False, 'status': 'Inactive'}
+                    friends_data = results[3] if not isinstance(results[3], Exception) else {'count': 0}
+                    is_2fa_enabled = results[4] if not isinstance(results[4], Exception) else False
                     
                     # Расчет метрик
                     account_age = self.calculate_account_age(auth_data.get('created'))
@@ -197,11 +183,12 @@ class AdvancedRobloxChecker:
                         },
                         'premium': premium_data,
                         'security': {
-                            '2fa_enabled': await self.check_2fa_status_async(session, headers),
+                            '2fa_enabled': is_2fa_enabled,
                         },
                         'social': {
                             'friends_count': friends_data['count'],
                             'followers_count': profile_data.get('followers_count', 0),
+                            'following_count': profile_data.get('following_count', 0),
                         },
                         'account_value': account_value,
                         'checked_at': datetime.now().isoformat()
@@ -341,7 +328,7 @@ class AdvancedRobloxChecker:
                 tasks.append(task)
         
         # Ограничиваем количество одновременных запросов
-        semaphore = asyncio.Semaphore(3)  # Максимум 3 одновременных запроса
+        semaphore = asyncio.Semaphore(3)
         
         async def bounded_task(task):
             async with semaphore:
@@ -349,20 +336,15 @@ class AdvancedRobloxChecker:
         
         results = []
         for task in tasks:
-            result = await bounded_task(task)
-            results.append(result)
-            await asyncio.sleep(0.5)  # Задержка между запросами
-            
+            try:
+                result = await bounded_task(task)
+                results.append(result)
+                await asyncio.sleep(0.5)  # Задержка между запросами
+            except Exception as e:
+                results.append(self.error_result(cookie, f"Check failed: {str(e)}"))
+                await asyncio.sleep(0.2)
+                
         return results
-
-    # Синхронные методы для обратной совместимости
-    def get_account_details(self, cookie: str):
-        """Синхронная проверка куки"""
-        return asyncio.run(self.check_cookie_async(cookie))
-
-    def check_multiple(self, cookies):
-        """Синхронная проверка нескольких куки"""
-        return asyncio.run(self.check_multiple_async(cookies))
 
 checker = AdvancedRobloxChecker()
 
@@ -374,8 +356,11 @@ def index():
 @app.route('/api/history')
 def api_history():
     """API для получения истории"""
-    check_history = get_check_history(20)
-    return jsonify(check_history)
+    try:
+        check_history = get_check_history(20)
+        return jsonify(check_history)
+    except Exception as e:
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
 
 @app.route('/api/check', methods=['POST'])
 def api_check_cookies():
@@ -402,14 +387,15 @@ def api_check_cookies():
         # Используем асинхронную проверку
         results = asyncio.run(checker.check_multiple_async(cookies))
         
-        session_id = datetime.now().strftime('%Y%m%d%H%M%S')
+        session_id = datetime.now().strftime('%Y%m%d_%H%M%S_') + ''.join(random.choices('0123456789abcdef', k=8))
         valid_count = len([r for r in results if r.get('valid', False)])
+        
         save_check_session(session_id, len(cookies), valid_count, results)
         
         return jsonify({
             'total': len(results),
             'valid': valid_count,
-            'invalid': len([r for r in results if not r.get('valid', True)]),
+            'invalid': len(results) - valid_count,
             'results': results,
             'session_id': session_id,
             'checked_at': datetime.now().isoformat()
@@ -434,23 +420,37 @@ def api_download_results(session_id):
         zip_buffer = io.BytesIO()
         
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # Файл с валидными куками
             all_cookies_content = "\n".join([r['cookie'] for r in valid_cookies])
-            zip_file.writestr('cookies.txt', all_cookies_content)
+            zip_file.writestr('valid_cookies.txt', all_cookies_content)
             
+            # Подробный отчет
             detailed_report = {
                 'check_date': datetime.now().isoformat(),
+                'session_id': session_id,
                 'summary': {
                     'total_checked': len(results),
                     'valid': len(valid_cookies),
                     'invalid': len([r for r in results if not r['valid']])
                 },
-                'cookies': results
+                'valid_accounts': []
             }
+            
+            for result in valid_cookies:
+                detailed_report['valid_accounts'].append({
+                    'username': result['account_info']['username'],
+                    'user_id': result['account_info']['user_id'],
+                    'robux': result['economy']['total_robux'],
+                    'premium': result['premium']['isPremium'],
+                    'account_value': result['account_value'],
+                    'cookie': result['cookie'][:50] + '...'  # Частичное отображение куки
+                })
+            
             zip_file.writestr('detailed_report.json', json.dumps(detailed_report, indent=2, ensure_ascii=False))
             
         zip_buffer.seek(0)
         
-        filename = f'roblox_cookies_{datetime.now().strftime("%Y%m%d_%H%M")}.zip'
+        filename = f'roblox_cookies_{session_id}.zip'
         
         return send_file(
             zip_buffer,
@@ -465,16 +465,19 @@ def api_download_results(session_id):
 @app.route('/api/session/<session_id>')
 def api_get_session(session_id):
     """API для получения результатов сессии"""
-    results = get_session_results(session_id)
-    if results:
-        valid_count = len([r for r in results if r.get('valid', False)])
-        return jsonify({
-            'total': len(results),
-            'valid': valid_count,
-            'invalid': len(results) - valid_count,
-            'results': results
-        })
-    return jsonify({'error': 'Session not found'}), 404
+    try:
+        results = get_session_results(session_id)
+        if results:
+            valid_count = len([r for r in results if r.get('valid', False)])
+            return jsonify({
+                'total': len(results),
+                'valid': valid_count,
+                'invalid': len(results) - valid_count,
+                'results': results
+            })
+        return jsonify({'error': 'Session not found'}), 404
+    except Exception as e:
+        return jsonify({'error': f'Database error: {str(e)}'}), 500
 
 @app.route('/api/delete/<session_id>', methods=['DELETE'])
 def api_delete_session(session_id):
@@ -486,9 +489,18 @@ def api_delete_session(session_id):
         conn.commit()
         conn.close()
         return jsonify({'success': True})
-    except:
-        return jsonify({'error': 'Delete failed'}), 500
+    except Exception as e:
+        return jsonify({'error': f'Delete failed: {str(e)}'}), 500
+
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=os.environ.get('DEBUG', False))
+    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=port, debug=debug)
