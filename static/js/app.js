@@ -559,7 +559,7 @@ function createAccountCard(result, index) {
     const account_age_years = safeNumber(acc.account_age_years, 0);
     const robux_balance = safeNumber(acc.robux_balance, 0);
     const pending_robux = safeNumber(acc.pending_robux, 0);
-    const total_spent_robux = safeNumber(acc.total_spent_robux, 0); // Всего потрачено
+    const total_spent_robux = safeNumber(acc.total_spent_robux, 0);
     const rap_value = safeNumber(acc.rap_value, 0);
     const premium = safeBoolean(acc.premium, false);
     const two_fa_enabled = safeBoolean(acc['2fa_enabled'], false);
@@ -575,7 +575,6 @@ function createAccountCard(result, index) {
     const card_count = safeNumber(acc.card_count, 0);
     const inventory_privacy = safeString(acc.inventory_privacy, 'Unknown');
     const trade_privacy = safeString(acc.trade_privacy, 'Unknown');
-    const can_trade = safeBoolean(acc.can_trade, false);
     const sessions_count = safeNumber(acc.sessions_count, 0);
     const email_status = safeString(acc.email_status, 'Unknown');
     const phone_status = safeString(acc.phone_status, 'No');
@@ -690,12 +689,6 @@ function createAccountCard(result, index) {
                     <div class="info-row">
                         <span>Приватность трейдов:</span>
                         <span>${trade_privacy}</span>
-                    </div>
-                    <div class="info-row">
-                        <span>Может трейдить:</span>
-                        <span class="status ${can_trade ? 'success' : 'error'}">
-                            ${can_trade ? 'ДА' : 'НЕТ'}
-                        </span>
                     </div>
                     <div class="info-row">
                         <span>Активные сессии:</span>
