@@ -2,7 +2,6 @@
 let currentSessionId = null;
 let currentResults = [];
 let isChecking = false;
-let userActivityInterval;
 
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', function() {
@@ -18,19 +17,8 @@ function initializeApp() {
     initializeEventListeners();
     loadGlobalStats();
     
-    // Обновляем активность пользователя каждые 30 секунд
-    userActivityInterval = setInterval(updateUserActivity, 30000);
-    
     // Обновляем статистику каждые 30 секунд
     setInterval(loadGlobalStats, 30000);
-}
-
-// Обновление активности пользователя
-function updateUserActivity() {
-    // Просто делаем запрос к API для обновления сессии
-    fetch('/api/global_stats')
-        .then(response => response.json())
-        .catch(error => console.error('Activity update error:', error));
 }
 
 // Инициализация частиц
@@ -244,20 +232,34 @@ async function handleFiles(file) {
 }
 
 function extractCookiesFromText(text) {
-    // Улучшенное извлечение куки
-    const cookieRegex = /_\|WARNING:-DO-NOT-SHARE-THIS\.[^\\s"]+/g;
-    const matches = text.match(cookieRegex) || [];
+    // Упрощенное извлечение куки - берем все что похоже на куки
+    const lines = text.split('\n');
+    const cookies = [];
     
-    return matches.map(cookie => {
-        // Очистка куки
-        cookie = cookie.trim();
-        if (cookie.startsWith('"') && cookie.endsWith('"')) {
-            cookie = cookie.slice(1, -1);
+    for (let line of lines) {
+        line = line.trim();
+        if (line.length > 100 && line.includes('WARNING:-DO-NOT-SHARE-THIS')) {
+            // Очищаем куки от мусора
+            let cookie = line.replace(/\s+/g, ' ').trim();
+            
+            // Убираем кавычки если есть
+            if (cookie.startsWith('"') && cookie.endsWith('"')) {
+                cookie = cookie.slice(1, -1);
+            }
+            if (cookie.startsWith("'") && cookie.endsWith("'")) {
+                cookie = cookie.slice(1, -1);
+            }
+            
+            // Убираем лишние пробелы
+            cookie = cookie.replace(/\s+/g, '');
+            
+            if (cookie.length > 100) {
+                cookies.push(cookie);
+            }
         }
-        return cookie.replace(/\s+/g, '');
-    })
-    .filter(cookie => cookie.length > 100 && cookie.startsWith('_|WARNING:-DO-NOT-SHARE-THIS.'))
-    .slice(0, 3000);
+    }
+    
+    return cookies.slice(0, 3000);
 }
 
 function readFileAsText(file) {
@@ -330,11 +332,6 @@ function initializeEventListeners() {
             if (e.target === this) closeModal();
         });
     }
-    
-    // Обновляем активность при взаимодействии с страницей
-    document.addEventListener('click', updateUserActivity);
-    document.addEventListener('keypress', updateUserActivity);
-    document.addEventListener('scroll', updateUserActivity);
 }
 
 // Загрузка статистики
@@ -381,10 +378,13 @@ async function checkCookies() {
         return;
     }
     
-    const cookies = extractCookiesFromText(cookiesText);
+    // Просто разбиваем на строки - бекенд сам разберется
+    const cookies = cookiesText.split('\n')
+        .map(c => c.trim())
+        .filter(c => c.length > 0);
     
     if (cookies.length === 0) {
-        showNotification('Не найдено валидных куки для проверки', 'error');
+        showNotification('Не найдено куки для проверки', 'error');
         return;
     }
     
@@ -857,10 +857,3 @@ window.toggleInvalidResults = toggleInvalidResults;
 window.closeModal = closeModal;
 window.loadHistory = loadHistory;
 window.switchPage = switchPage;
-
-// Очистка при закрытии страницы
-window.addEventListener('beforeunload', function() {
-    if (userActivityInterval) {
-        clearInterval(userActivityInterval);
-    }
-});
