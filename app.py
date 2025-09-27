@@ -415,20 +415,28 @@ class AdvancedRobloxChecker:
         except:
             return {'account_age_days': 0, 'account_age_years': 0, 'formatted_date': 'Unknown'}
 
-    def calculate_account_value(self, robux, is_premium, age_years, friends_count, rap_value):
-        """Расчет стоимости аккаунта"""
-        try:
-            value = robux * 0.0035
-            value += rap_value * 0.001
-            value += age_years * 200
-            value += friends_count * 2
-            
-            if is_premium:
-                value += 300
+        def calculate_account_value(self, robux, is_premium, age_years, friends_count, rap_value):
+            """Расчет стоимости аккаунта с защитой от ошибок"""
+            try:
+                # Защита от None значений
+                robux = robux or 0
+                rap_value = rap_value or 0
+                age_years = age_years or 0
+                friends_count = friends_count or 0
+                is_premium = bool(is_premium)
                 
-            return round(max(value, 5), 2)
-        except:
-            return 5.0
+                value = robux * 0.0035
+                value += rap_value * 0.001
+                value += age_years * 200
+                value += friends_count * 2
+                
+                if is_premium:
+                    value += 300
+                    
+                return round(max(value, 5), 2)
+            except Exception as e:
+                print(f"Account value calculation error: {e}")
+                return 5.0
 
     async def check_single_cookie(self, cookie):
         """Проверка одной куки"""

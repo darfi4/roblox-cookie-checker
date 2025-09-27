@@ -21,6 +21,29 @@ function initializeApp() {
     setInterval(loadGlobalStats, 30000);
 }
 
+// Безопасные функции для работы с числами
+function safeToLocaleString(num, defaultValue = 0) {
+    if (num === undefined || num === null) {
+        return defaultValue.toLocaleString();
+    }
+    try {
+        return Number(num).toLocaleString();
+    } catch (e) {
+        return defaultValue.toLocaleString();
+    }
+}
+
+function safeNumber(num, defaultValue = 0) {
+    if (num === undefined || num === null) {
+        return defaultValue;
+    }
+    try {
+        return Number(num);
+    } catch (e) {
+        return defaultValue;
+    }
+}
+
 // Инициализация частиц
 function initializeParticles() {
     const canvas = document.getElementById('particlesCanvas');
@@ -507,20 +530,44 @@ function displayResults(data) {
 function createAccountCard(result, index) {
     const acc = result.account_info;
     
+    // Защита от undefined значений
+    const safeGet = (obj, key, defaultValue = 0) => {
+        return obj && obj[key] !== undefined ? obj[key] : defaultValue;
+    };
+    
+    const username = safeGet(acc, 'username', 'N/A');
+    const user_id = safeGet(acc, 'user_id', 'N/A');
+    const display_name = safeGet(acc, 'display_name', username);
+    const formatted_date = safeGet(acc, 'formatted_date', 'Unknown');
+    const account_age_days = safeGet(acc, 'account_age_days', 0);
+    const account_age_years = safeGet(acc, 'account_age_years', 0);
+    const is_banned = safeGet(acc, 'is_banned', false);
+    const robux_balance = safeGet(acc, 'robux_balance', 0);
+    const pending_robux = safeGet(acc, 'pending_robux', 0);
+    const total_robux = safeGet(acc, 'total_robux', 0);
+    const rap_value = safeGet(acc, 'rap_value', 0);
+    const premium = safeGet(acc, 'premium', false);
+    const two_fa_enabled = safeGet(acc, '2fa_enabled', false);
+    const friends_count = safeGet(acc, 'friends_count', 0);
+    const followers_count = safeGet(acc, 'followers_count', 0);
+    const account_value = safeGet(acc, 'account_value', 0);
+    const description = safeGet(acc, 'description', '');
+    const profile_url = safeGet(acc, 'profile_url', `https://www.roblox.com/users/${user_id}/profile`);
+    
     return `
         <div class="cyber-card account-card fade-in-up">
             <div class="account-header">
                 <div class="account-index">#${index}</div>
                 <div class="account-main">
-                    <h3 class="username">${escapeHtml(acc.username)}</h3>
+                    <h3 class="username">${escapeHtml(username)}</h3>
                     <div class="account-details">
-                        <span>ID: ${acc.user_id}</span>
-                        <a href="${acc.profile_url}" target="_blank" class="profile-link">
+                        <span>ID: ${user_id}</span>
+                        <a href="${profile_url}" target="_blank" class="profile-link">
                             <i class="fas fa-external-link-alt"></i> Профиль
                         </a>
                     </div>
                 </div>
-                <div class="account-value">$${acc.account_value}</div>
+                <div class="account-value">$${account_value.toLocaleString()}</div>
             </div>
             
             <div class="account-grid">
@@ -528,20 +575,20 @@ function createAccountCard(result, index) {
                     <h4><i class="fas fa-id-card"></i> ОСНОВНАЯ ИНФОРМАЦИЯ</h4>
                     <div class="info-row">
                         <span>Display Name:</span>
-                        <span>${escapeHtml(acc.display_name)}</span>
+                        <span>${escapeHtml(display_name)}</span>
                     </div>
                     <div class="info-row">
                         <span>Дата создания:</span>
-                        <span>${acc.formatted_date}</span>
+                        <span>${formatted_date}</span>
                     </div>
                     <div class="info-row">
                         <span>Возраст аккаунта:</span>
-                        <span>${acc.account_age_days} дней (${acc.account_age_years} лет)</span>
+                        <span>${safeToLocaleString(account_age_days)} дней (${account_age_years.toLocaleString()} лет)</span>
                     </div>
                     <div class="info-row">
                         <span>Статус бана:</span>
-                        <span class="status ${acc.is_banned ? 'error' : 'success'}">
-                            ${acc.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН'}
+                        <span class="status ${is_banned ? 'error' : 'success'}">
+                            ${is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН'}
                         </span>
                     </div>
                 </div>
@@ -550,19 +597,19 @@ function createAccountCard(result, index) {
                     <h4><i class="fas fa-coins"></i> ЭКОНОМИКА</h4>
                     <div class="info-row">
                         <span>Баланс Robux:</span>
-                        <span class="robux">${acc.robux_balance.toLocaleString()}</span>
+                        <span class="robux">${robux_balance.toLocaleString()}</span>
                     </div>
                     <div class="info-row">
                         <span>Pending Robux:</span>
-                        <span>${acc.pending_robux.toLocaleString()}</span>
+                        <span>${pending_robux.toLocaleString()}</span>
                     </div>
                     <div class="info-row">
                         <span>Всего Robux:</span>
-                        <span class="total-spent">${acc.total_robux.toLocaleString()} R$</span>
+                        <span class="total-spent">${total_robux.toLocaleString()} R$</span>
                     </div>
                     <div class="info-row">
                         <span>RAP стоимость:</span>
-                        <span>${acc.rap_value.toLocaleString()}</span>
+                        <span>${rap_value.toLocaleString()}</span>
                     </div>
                 </div>
                 
@@ -570,32 +617,32 @@ function createAccountCard(result, index) {
                     <h4><i class="fas fa-chart-bar"></i> СТАТИСТИКА</h4>
                     <div class="info-row">
                         <span>Premium:</span>
-                        <span class="status ${acc.premium ? 'success' : 'error'}">
-                            ${acc.premium ? 'АКТИВНО' : 'НЕАКТИВНО'}
+                        <span class="status ${premium ? 'success' : 'error'}">
+                            ${premium ? 'АКТИВНО' : 'НЕАКТИВНО'}
                         </span>
                     </div>
                     <div class="info-row">
                         <span>2FA:</span>
-                        <span class="status ${acc['2fa_enabled'] ? 'success' : 'error'}">
-                            ${acc['2fa_enabled'] ? 'ВКЛ' : 'ВЫКЛ'}
+                        <span class="status ${two_fa_enabled ? 'success' : 'error'}">
+                            ${two_fa_enabled ? 'ВКЛ' : 'ВЫКЛ'}
                         </span>
                     </div>
                     <div class="info-row">
                         <span>Друзья:</span>
-                        <span>${acc.friends_count.toLocaleString()}</span>
+                        <span>${friends_count.toLocaleString()}</span>
                     </div>
                     <div class="info-row">
                         <span>Подписчики:</span>
-                        <span>${acc.followers_count.toLocaleString()}</span>
+                        <span>${followers_count.toLocaleString()}</span>
                     </div>
                 </div>
             </div>
             
-            ${acc.description ? `
+            ${description ? `
             <div class="info-group" style="margin-top: 1rem;">
                 <h4><i class="fas fa-file-alt"></i> ОПИСАНИЕ</h4>
                 <div style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.4;">
-                    ${escapeHtml(acc.description.substring(0, 200))}${acc.description.length > 200 ? '...' : ''}
+                    ${escapeHtml(description.substring(0, 200))}${description.length > 200 ? '...' : ''}
                 </div>
             </div>
             ` : ''}
@@ -767,15 +814,23 @@ function viewCurrentResults() {
     `;
     
     validResults.forEach(result => {
+        const acc = result.account_info || {};
+        const username = acc.username || 'N/A';
+        const user_id = acc.user_id || 'N/A';
+        const total_robux = acc.total_robux || 0;
+        const friends_count = acc.friends_count || 0;
+        const premium = acc.premium || false;
+        const two_fa_enabled = acc['2fa_enabled'] || false;
+        
         html += `
             <div style="padding: 0.8rem; border-bottom: 1px solid var(--card-border);">
-                <strong>${escapeHtml(result.account_info.username)}</strong>
+                <strong>${escapeHtml(username)}</strong>
                 <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                    ID: ${result.account_info.user_id} | 
-                    Robux: ${result.account_info.total_robux} | 
-                    Друзья: ${result.account_info.friends_count} |
-                    Premium: ${result.account_info.premium ? 'Да' : 'Нет'} |
-                    2FA: ${result.account_info['2fa_enabled'] ? 'Вкл' : 'Выкл'}
+                    ID: ${user_id} | 
+                    Robux: ${total_robux.toLocaleString()} | 
+                    Друзья: ${friends_count.toLocaleString()} |
+                    Premium: ${premium ? 'Да' : 'Нет'} |
+                    2FA: ${two_fa_enabled ? 'Вкл' : 'Выкл'}
                 </div>
             </div>
         `;
