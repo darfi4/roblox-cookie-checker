@@ -16,6 +16,9 @@ function initializeApp() {
     initializeContactMenu();
     initializeEventListeners();
     loadGlobalStats();
+    
+    // Обновляем статистику каждые 30 секунд
+    setInterval(loadGlobalStats, 30000);
 }
 
 // Инициализация частиц
@@ -25,7 +28,6 @@ function initializeParticles() {
     
     const ctx = canvas.getContext('2d');
     
-    // Установка размера canvas
     function resizeCanvas() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
@@ -34,7 +36,6 @@ function initializeParticles() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
     
-    // Создание частиц
     const particles = [];
     const particleCount = 100;
     
@@ -49,12 +50,7 @@ function initializeParticles() {
         });
     }
     
-    // Обработчик мыши
-    const mouse = {
-        x: undefined,
-        y: undefined,
-        radius: 100
-    };
+    const mouse = { x: undefined, y: undefined, radius: 100 };
     
     window.addEventListener('mousemove', function(event) {
         mouse.x = event.x;
@@ -66,22 +62,18 @@ function initializeParticles() {
         mouse.y = undefined;
     });
     
-    // Анимация
     function animate() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
         for (let i = 0; i < particles.length; i++) {
             let p = particles[i];
             
-            // Обновление позиции
             p.x += p.speedX;
             p.y += p.speedY;
             
-            // Отскок от границ
             if (p.x < 0 || p.x > canvas.width) p.speedX *= -1;
             if (p.y < 0 || p.y > canvas.height) p.speedY *= -1;
             
-            // Взаимодействие с мышью
             if (mouse.x && mouse.y) {
                 let dx = mouse.x - p.x;
                 let dy = mouse.y - p.y;
@@ -95,13 +87,11 @@ function initializeParticles() {
                 }
             }
             
-            // Отрисовка частицы
             ctx.beginPath();
             ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
             ctx.fillStyle = p.color;
             ctx.fill();
             
-            // Соединение частиц
             for (let j = i + 1; j < particles.length; j++) {
                 let p2 = particles[j];
                 let dx = p.x - p2.x;
@@ -125,7 +115,7 @@ function initializeParticles() {
     animate();
 }
 
-// Инициализация навигации
+// Навигация
 function initializeNavigation() {
     const tabs = document.querySelectorAll('.main-tab');
     tabs.forEach(tab => {
@@ -136,37 +126,31 @@ function initializeNavigation() {
     });
 }
 
-// Переключение страниц
 function switchPage(pageName) {
-    // Скрыть все страницы
     document.querySelectorAll('.page-section').forEach(section => {
         section.classList.remove('active');
     });
     
-    // Убрать активный класс со всех вкладок
     document.querySelectorAll('.main-tab').forEach(tab => {
         tab.classList.remove('active');
     });
     
-    // Показать выбранную страницу
     const targetSection = document.getElementById(pageName + 'Section');
     if (targetSection) {
         targetSection.classList.add('active');
     }
     
-    // Активировать соответствующую вкладку
     const activeTab = document.querySelector(`[data-page="${pageName}"]`);
     if (activeTab) {
         activeTab.classList.add('active');
     }
     
-    // Загрузить историю если перешли на страницу истории
     if (pageName === 'history') {
         loadHistory();
     }
 }
 
-// Инициализация вкладок
+// Вкладки
 function initializeTabs() {
     const tabButtons = document.querySelectorAll('.tab-btn');
     tabButtons.forEach(button => {
@@ -177,32 +161,27 @@ function initializeTabs() {
     });
 }
 
-// Переключение вкладок
 function switchTab(tabName) {
-    // Убрать активный класс со всех кнопок
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     
-    // Скрыть весь контент вкладок
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
     
-    // Активировать выбранную кнопку
     const activeButton = document.querySelector(`[data-tab="${tabName}"]`);
     if (activeButton) {
         activeButton.classList.add('active');
     }
     
-    // Показать соответствующий контент
     const activeContent = document.getElementById(tabName + '-tab');
     if (activeContent) {
         activeContent.classList.add('active');
     }
 }
 
-// Инициализация загрузки файлов
+// Загрузка файлов
 function initializeFileUpload() {
     const fileInput = document.getElementById('fileInput');
     const uploadZone = document.getElementById('fileUploadZone');
@@ -238,9 +217,7 @@ function handleFileSelect(e) {
 async function handleFiles(file) {
     try {
         const text = await readFileAsText(file);
-        const cookies = text.split('\n')
-            .map(line => line.trim())
-            .filter(line => line && line.length > 100);
+        const cookies = extractCookiesFromText(text);
         
         if (cookies.length > 0) {
             document.getElementById('cookiesInput').value = cookies.join('\n');
@@ -254,6 +231,15 @@ async function handleFiles(file) {
     }
 }
 
+function extractCookiesFromText(text) {
+    const cookieRegex = /_\|WARNING:-DO-NOT-SHARE-THIS\.[^\s]+/g;
+    const matches = text.match(cookieRegex) || [];
+    
+    return matches.map(cookie => cookie.trim())
+        .filter(cookie => cookie.length > 100)
+        .slice(0, 3000);
+}
+
 function readFileAsText(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -263,30 +249,18 @@ function readFileAsText(file) {
     });
 }
 
-// Инициализация меню контактов
+// Меню контактов
 function initializeContactMenu() {
     const contactButton = document.getElementById('contactButton');
     const closeButton = document.getElementById('closeContact');
     const overlay = document.getElementById('menuOverlay');
-    const menu = document.getElementById('contactMenu');
     
-    if (contactButton) {
-        contactButton.addEventListener('click', openContactMenu);
-    }
+    if (contactButton) contactButton.addEventListener('click', openContactMenu);
+    if (closeButton) closeButton.addEventListener('click', closeContactMenu);
+    if (overlay) overlay.addEventListener('click', closeContactMenu);
     
-    if (closeButton) {
-        closeButton.addEventListener('click', closeContactMenu);
-    }
-    
-    if (overlay) {
-        overlay.addEventListener('click', closeContactMenu);
-    }
-    
-    // Закрытие по ESC
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeContactMenu();
-        }
+        if (e.key === 'Escape') closeContactMenu();
     });
 }
 
@@ -318,32 +292,27 @@ function closeContactMenu() {
     }
 }
 
-// Инициализация обработчиков событий
+// Обработчики событий
 function initializeEventListeners() {
-    // Кнопка проверки
     const checkButton = document.getElementById('checkButton');
     if (checkButton) {
         checkButton.addEventListener('click', checkCookies);
     }
     
-    // Закрытие модального окна
     const closeModalBtn = document.querySelector('.close-btn');
     if (closeModalBtn) {
         closeModalBtn.addEventListener('click', closeModal);
     }
     
-    // Закрытие модального окна по клику вне его
     const modal = document.getElementById('resultsModal');
     if (modal) {
         modal.addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
+            if (e.target === this) closeModal();
         });
     }
 }
 
-// Загрузка глобальной статистики
+// Загрузка статистики
 async function loadGlobalStats() {
     try {
         const response = await fetch('/api/global_stats');
@@ -360,7 +329,7 @@ function updateGlobalStats(stats) {
     const elements = {
         'totalChecked': stats.total_checked || 0,
         'validAccounts': stats.valid_accounts || 0,
-        'activeUsers': stats.unique_users || 0
+        'activeUsers': stats.active_users || 0
     };
     
     Object.keys(elements).forEach(id => {
@@ -387,9 +356,7 @@ async function checkCookies() {
         return;
     }
     
-    const cookies = cookiesText.split('\n')
-        .map(c => c.trim())
-        .filter(c => c && c.length > 100);
+    const cookies = extractCookiesFromText(cookiesText);
     
     if (cookies.length === 0) {
         showNotification('Не найдено валидных куки для проверки', 'error');
@@ -405,7 +372,6 @@ async function checkCookies() {
     const button = document.getElementById('checkButton');
     const originalText = button.innerHTML;
     
-    // Показываем индикатор загрузки
     button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ПРОВЕРКА...';
     button.disabled = true;
     
@@ -425,13 +391,12 @@ async function checkCookies() {
             currentResults = data.results;
             displayResults(data);
             showNotification(`Проверка завершена! Валидных: ${data.valid} из ${data.total}`, 'success');
-            loadGlobalStats(); // Обновляем статистику
+            loadGlobalStats();
         } else {
             throw new Error(data.error || 'Ошибка сервера');
         }
         
     } catch (error) {
-        console.error('Check error:', error);
         showNotification('Ошибка проверки: ' + error.message, 'error');
     } finally {
         isChecking = false;
@@ -486,7 +451,7 @@ function displayResults(data) {
         html += createAccountCard(result, index + 1);
     });
     
-    // Невалидные куки (сворачиваемый блок)
+    // Невалидные куки
     if (invalidResults.length > 0) {
         html += `
             <div class="cyber-card fade-in-up">
@@ -509,7 +474,6 @@ function displayResults(data) {
     
     container.innerHTML = html;
     
-    // Прокрутка к результатам
     setTimeout(() => {
         container.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 100);
@@ -517,10 +481,6 @@ function displayResults(data) {
 
 function createAccountCard(result, index) {
     const acc = result.account_info;
-    const eco = result.economy;
-    const prem = result.premium;
-    const sec = result.security;
-    const soc = result.social;
     
     return `
         <div class="cyber-card account-card fade-in-up">
@@ -535,23 +495,29 @@ function createAccountCard(result, index) {
                         </a>
                     </div>
                 </div>
-                <div class="account-value">$${result.account_value}</div>
+                <div class="account-value">$${acc.account_value}</div>
             </div>
             
             <div class="account-grid">
                 <div class="info-group">
-                    <h4><i class="fas fa-id-card"></i> ИНФОРМАЦИЯ</h4>
+                    <h4><i class="fas fa-id-card"></i> ОСНОВНАЯ ИНФОРМАЦИЯ</h4>
                     <div class="info-row">
                         <span>Display Name:</span>
                         <span>${escapeHtml(acc.display_name)}</span>
                     </div>
                     <div class="info-row">
-                        <span>Дата регистрации:</span>
+                        <span>Дата создания:</span>
                         <span>${acc.created_date}</span>
                     </div>
                     <div class="info-row">
                         <span>Возраст аккаунта:</span>
-                        <span>${acc.account_age_years} лет (${acc.account_age_days} дней)</span>
+                        <span>${acc.account_age_days} дней (${acc.account_age_years} лет)</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Статус бана:</span>
+                        <span class="status ${acc.is_banned ? 'error' : 'success'}">
+                            ${acc.is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН'}
+                        </span>
                     </div>
                 </div>
                 
@@ -559,38 +525,55 @@ function createAccountCard(result, index) {
                     <h4><i class="fas fa-coins"></i> ЭКОНОМИКА</h4>
                     <div class="info-row">
                         <span>Баланс Robux:</span>
-                        <span class="robux">${eco.robux_balance.toLocaleString()}</span>
+                        <span class="robux">${acc.robux_balance.toLocaleString()}</span>
                     </div>
                     <div class="info-row">
                         <span>Pending Robux:</span>
-                        <span>${eco.pending_robux.toLocaleString()}</span>
+                        <span>${acc.pending_robux.toLocaleString()}</span>
                     </div>
                     <div class="info-row">
                         <span>Всего Robux:</span>
-                        <span class="total-spent">${eco.total_robux.toLocaleString()} R$</span>
+                        <span class="total-spent">${acc.total_robux.toLocaleString()} R$</span>
+                    </div>
+                    <div class="info-row">
+                        <span>RAP стоимость:</span>
+                        <span>${acc.rap_value.toLocaleString()}</span>
                     </div>
                 </div>
                 
                 <div class="info-group">
-                    <h4><i class="fas fa-shield-alt"></i> СТАТУС</h4>
+                    <h4><i class="fas fa-chart-bar"></i> СТАТИСТИКА</h4>
                     <div class="info-row">
                         <span>Premium:</span>
-                        <span class="status ${prem.isPremium ? 'success' : 'error'}">
-                            ${prem.isPremium ? 'АКТИВНО' : 'НЕАКТИВНО'}
+                        <span class="status ${acc.premium ? 'success' : 'error'}">
+                            ${acc.premium ? 'АКТИВНО' : 'НЕАКТИВНО'}
                         </span>
                     </div>
                     <div class="info-row">
                         <span>2FA:</span>
-                        <span class="status ${sec['2fa_enabled'] ? 'success' : 'error'}">
-                            ${sec['2fa_enabled'] ? 'ВКЛ' : 'ВЫКЛ'}
+                        <span class="status ${acc['2fa_enabled'] ? 'success' : 'error'}">
+                            ${acc['2fa_enabled'] ? 'ВКЛ' : 'ВЫКЛ'}
                         </span>
                     </div>
                     <div class="info-row">
                         <span>Друзья:</span>
-                        <span>${soc.friends_count}</span>
+                        <span>${acc.friends_count.toLocaleString()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Подписчики:</span>
+                        <span>${acc.followers_count.toLocaleString()}</span>
                     </div>
                 </div>
             </div>
+            
+            ${acc.description ? `
+            <div class="info-group" style="margin-top: 1rem;">
+                <h4><i class="fas fa-file-alt"></i> ОПИСАНИЕ</h4>
+                <div style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.4;">
+                    ${escapeHtml(acc.description.substring(0, 200))}${acc.description.length > 200 ? '...' : ''}
+                </div>
+            </div>
+            ` : ''}
         </div>
     `;
 }
@@ -764,8 +747,9 @@ function viewCurrentResults() {
                 <strong>${escapeHtml(result.account_info.username)}</strong>
                 <div style="font-size: 0.8rem; color: var(--text-secondary);">
                     ID: ${result.account_info.user_id} | 
-                    Robux: ${result.economy.total_robux} | 
-                    Друзья: ${result.social.friends_count}
+                    Robux: ${result.account_info.total_robux} | 
+                    Друзья: ${result.account_info.friends_count} |
+                    RAP: ${result.account_info.rap_value}
                 </div>
             </div>
         `;
