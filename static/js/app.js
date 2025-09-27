@@ -528,31 +528,67 @@ function displayResults(data) {
 }
 
 function createAccountCard(result, index) {
-    const acc = result.account_info;
+    const acc = result.account_info || {};
     
-    // Защита от undefined значений
-    const safeGet = (obj, key, defaultValue = 0) => {
-        return obj && obj[key] !== undefined ? obj[key] : defaultValue;
+    // Безопасные функции
+    const safeGet = (obj, key, defaultValue = 'N/A') => {
+        return obj && obj[key] !== undefined && obj[key] !== null ? obj[key] : defaultValue;
     };
     
-    const username = safeGet(acc, 'username', 'N/A');
-    const user_id = safeGet(acc, 'user_id', 'N/A');
-    const display_name = safeGet(acc, 'display_name', username);
-    const formatted_date = safeGet(acc, 'formatted_date', 'Unknown');
-    const account_age_days = safeGet(acc, 'account_age_days', 0);
-    const account_age_years = safeGet(acc, 'account_age_years', 0);
-    const is_banned = safeGet(acc, 'is_banned', false);
-    const robux_balance = safeGet(acc, 'robux_balance', 0);
-    const pending_robux = safeGet(acc, 'pending_robux', 0);
-    const total_robux = safeGet(acc, 'total_robux', 0);
-    const rap_value = safeGet(acc, 'rap_value', 0);
-    const premium = safeGet(acc, 'premium', false);
-    const two_fa_enabled = safeGet(acc, '2fa_enabled', false);
-    const friends_count = safeGet(acc, 'friends_count', 0);
-    const followers_count = safeGet(acc, 'followers_count', 0);
-    const account_value = safeGet(acc, 'account_value', 0);
-    const description = safeGet(acc, 'description', '');
-    const profile_url = safeGet(acc, 'profile_url', `https://www.roblox.com/users/${user_id}/profile`);
+    const safeNumber = (num, defaultValue = 0) => {
+        const value = safeGet({num}, 'num', defaultValue);
+        return typeof value === 'number' ? value : defaultValue;
+    };
+    
+    const safeString = (str, defaultValue = 'N/A') => {
+        const value = safeGet({str}, 'str', defaultValue);
+        return String(value);
+    };
+    
+    const safeBoolean = (bool, defaultValue = false) => {
+        const value = safeGet({bool}, 'bool', defaultValue);
+        return Boolean(value);
+    };
+    
+    // Извлекаем данные с защитой от ошибок
+    const username = safeString(acc.username, 'N/A');
+    const user_id = safeString(acc.user_id, 'N/A');
+    const display_name = safeString(acc.display_name, username);
+    const formatted_date = safeString(acc.formatted_date, 'Unknown');
+    const account_age_days = safeNumber(acc.account_age_days, 0);
+    const account_age_years = safeNumber(acc.account_age_years, 0);
+    const is_banned = safeBoolean(acc.is_banned, false);
+    const robux_balance = safeNumber(acc.robux_balance, 0);
+    const pending_robux = safeNumber(acc.pending_robux, 0);
+    const total_robux = safeNumber(acc.total_robux, 0);
+    const rap_value = safeNumber(acc.rap_value, 0);
+    const premium = safeBoolean(acc.premium, false);
+    const two_fa_enabled = safeBoolean(acc['2fa_enabled'], false);
+    const friends_count = safeNumber(acc.friends_count, 0);
+    const followers_count = safeNumber(acc.followers_count, 0);
+    const following_count = safeNumber(acc.following_count, 0);
+    const account_value = safeNumber(acc.account_value, 0);
+    const description = safeString(acc.description, '');
+    const profile_url = safeString(acc.profile_url, `https://www.roblox.com/users/${user_id}/profile`);
+    
+    // Дополнительные поля
+    const billing_robux = safeNumber(acc.billing_robux, 0);
+    const card_count = safeNumber(acc.card_count, 0);
+    const inventory_privacy = safeString(acc.inventory_privacy, 'Unknown');
+    const trade_privacy = safeString(acc.trade_privacy, 'Unknown');
+    const can_trade = safeBoolean(acc.can_trade, false);
+    const sessions_count = safeNumber(acc.sessions_count, 0);
+    const email_status = safeString(acc.email_status, 'Unknown');
+    const phone_status = safeString(acc.phone_status, 'No');
+    const pin_enabled = safeBoolean(acc.pin_enabled, false);
+    const groups_owned = safeNumber(acc.groups_owned, 0);
+    const groups_members = safeNumber(acc.groups_members, 0);
+    const groups_pending = safeNumber(acc.groups_pending, 0);
+    const groups_funds = safeNumber(acc.groups_funds, 0);
+    const above_13 = safeString(acc.above_13, 'Unknown');
+    const verified_age = safeString(acc.verified_age, 'No');
+    const voice_enabled = safeString(acc.voice_enabled, 'No');
+    const roblox_badges_count = safeNumber(acc.roblox_badges_count, 0);
     
     return `
         <div class="cyber-card account-card fade-in-up">
@@ -583,7 +619,7 @@ function createAccountCard(result, index) {
                     </div>
                     <div class="info-row">
                         <span>Возраст аккаунта:</span>
-                        <span>${safeToLocaleString(account_age_days)} дней (${account_age_years.toLocaleString()} лет)</span>
+                        <span>${account_age_days.toLocaleString()} дней (${account_age_years.toFixed(1)} лет)</span>
                     </div>
                     <div class="info-row">
                         <span>Статус бана:</span>
@@ -611,6 +647,10 @@ function createAccountCard(result, index) {
                         <span>RAP стоимость:</span>
                         <span>${rap_value.toLocaleString()}</span>
                     </div>
+                    <div class="info-row">
+                        <span>Billing Robux:</span>
+                        <span>${billing_robux.toLocaleString()}</span>
+                    </div>
                 </div>
                 
                 <div class="info-group">
@@ -634,6 +674,92 @@ function createAccountCard(result, index) {
                     <div class="info-row">
                         <span>Подписчики:</span>
                         <span>${followers_count.toLocaleString()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Подписки:</span>
+                        <span>${following_count.toLocaleString()}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="account-grid">
+                <div class="info-group">
+                    <h4><i class="fas fa-shield-alt"></i> БЕЗОПАСНОСТЬ</h4>
+                    <div class="info-row">
+                        <span>Привязанные карты:</span>
+                        <span>${card_count}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Приватность инвентаря:</span>
+                        <span>${inventory_privacy}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Приватность трейдов:</span>
+                        <span>${trade_privacy}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Может трейдить:</span>
+                        <span class="status ${can_trade ? 'success' : 'error'}">
+                            ${can_trade ? 'ДА' : 'НЕТ'}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span>Активные сессии:</span>
+                        <span>${sessions_count}</span>
+                    </div>
+                </div>
+                
+                <div class="info-group">
+                    <h4><i class="fas fa-envelope"></i> КОНТАКТЫ</h4>
+                    <div class="info-row">
+                        <span>Email:</span>
+                        <span>${email_status}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Телефон:</span>
+                        <span>${phone_status}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>PIN код:</span>
+                        <span class="status ${pin_enabled ? 'success' : 'error'}">
+                            ${pin_enabled ? 'ВКЛ' : 'ВЫКЛ'}
+                        </span>
+                    </div>
+                    <div class="info-row">
+                        <span>Возраст >13:</span>
+                        <span>${above_13}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Подтвержденный возраст:</span>
+                        <span>${verified_age}</span>
+                    </div>
+                </div>
+                
+                <div class="info-group">
+                    <h4><i class="fas fa-users"></i> ГРУППЫ И БЕЙДЖИ</h4>
+                    <div class="info-row">
+                        <span>Владелец групп:</span>
+                        <span>${groups_owned}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Участников в группах:</span>
+                        <span>${groups_members.toLocaleString()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Pending в группах:</span>
+                        <span>${groups_pending}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Фонды групп:</span>
+                        <span>${groups_funds.toLocaleString()}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Голосовой чат:</span>
+                        <span>${voice_enabled}</span>
+                    </div>
+                    <div class="info-row">
+                        <span>Бейджи Roblox:</span>
+                        <span>${roblox_badges_count}</span>
                     </div>
                 </div>
             </div>

