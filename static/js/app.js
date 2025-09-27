@@ -732,7 +732,7 @@ async function deleteSession(sessionId) {
     }
 }
 
-// Просмотр текущих результатов в модальном окне
+// Просмотр текущих результатов в модальном окне - исправленная версия
 function viewCurrentResults() {
     if (!currentResults.length) return;
     
@@ -774,7 +774,8 @@ function viewCurrentResults() {
                     ID: ${result.account_info.user_id} | 
                     Robux: ${result.account_info.total_robux} | 
                     Друзья: ${result.account_info.friends_count} |
-                    RAP: ${result.account_info.rap_value}
+                    Premium: ${result.account_info.premium ? 'Да' : 'Нет'} |
+                    2FA: ${result.account_info['2fa_enabled'] ? 'Вкл' : 'Выкл'}
                 </div>
             </div>
         `;
@@ -783,14 +784,22 @@ function viewCurrentResults() {
     html += `</div></div>`;
     
     modalBody.innerHTML = html;
+    
+    // Плавное открытие модалки
     modal.style.display = 'block';
+    setTimeout(() => {
+        modal.style.opacity = '1';
+    }, 10);
 }
 
-// Закрытие модального окна
+// Закрытие модального окна - исправленная версия
 function closeModal() {
     const modal = document.getElementById('resultsModal');
     if (modal) {
-        modal.style.display = 'none';
+        modal.style.opacity = '0';
+        setTimeout(() => {
+            modal.style.display = 'none';
+        }, 300);
     }
 }
 

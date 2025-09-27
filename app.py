@@ -14,6 +14,9 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 from threading import Timer
+import asyncio
+import aiohttp
+from functools import wraps
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
@@ -36,10 +39,8 @@ def cleanup_sessions():
         for session_id in expired_sessions:
             del active_sessions[session_id]
     
-    # Запускаем следующую очистку через минуту
     Timer(60, cleanup_sessions).start()
 
-# Запускаем очистку при старте
 cleanup_sessions()
 
 def init_db():
@@ -202,15 +203,15 @@ def get_session_results(session_id, user_id):
     except:
         return None
 
+# Улучшенный класс для проверки Roblox куки
 class AdvancedRobloxChecker:
     def __init__(self):
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        self.timeout = 30
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json, text/plain, */*',
             'Accept-Language': 'en-US,en;q=0.9',
-        })
-        self.timeout = 30
+        }
 
     def clean_cookie(self, cookie):
         """Тщательная очистка куки"""
@@ -232,318 +233,172 @@ class AdvancedRobloxChecker:
             
         return cookie if len(cookie) > 100 else None
 
-    def get_csrf_token(self, cookie):
-        """Получение CSRF токена с улучшенной логикой"""
+    async def get_account_info(self, cookie):
+        """Основная функция получения информации об аккаунте"""
         try:
-            # Первый способ - через auth endpoint
-            response = self.session.post(
-                'https://auth.roblox.com/v2/login',
-                cookies={'.ROBLOSECURITY': cookie},
-                timeout=10,
-                allow_redirects=False
-            )
-            
-            if response.status_code == 403 and 'x-csrf-token' in response.headers:
-                return response.headers['x-csrf-token']
-            
-            # Второй способ - через другие endpoints
-            endpoints = [
-                'https://www.roblox.com/game/GetCurrentUser',
-                'https://accountsettings.roblox.com/v1/email',
-                'https://users.roblox.com/v1/users/authenticated'
-            ]
-            
-            for endpoint in endpoints:
-                try:
-                    response = self.session.post(
-                        endpoint,
-                        cookies={'.ROBLOSECURITY': cookie},
-                        timeout=5
-                    )
-                    if 'x-csrf-token' in response.headers:
-                        return response.headers['x-csrf-token']
-                except:
-                    continue
+            async with aiohttp.ClientSession() as session:
+                # Проверка аутентификации
+                auth_url = 'https://users.roblox.com/v1/users/authenticated'
+                headers = {
+                    'Cookie': f'.ROBLOSECURITY={cookie}',
+                    **self.headers
+                }
+                
+                async with session.get(auth_url, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as response:
+                    if response.status != 200:
+                        return None
+                    
+                    auth_data = await response.json()
+                    if not auth_data.get('id'):
+                        return None
+                    
+                    user_id = auth_data['id']
+                    
+                    # Получаем основную информацию
+                    account_info = await self.get_detailed_info(session, cookie, user_id, auth_data)
+                    return account_info
                     
         except Exception as e:
-            print(f"CSRF token error: {e}")
-            
-        return None
+            print(f"Account info error: {e}")
+            return None
 
-    def make_authenticated_request(self, url, cookie, csrf_token=None, method='GET', retry_count=3):
-        """Улучшенный запрос с обработкой ошибок"""
-        headers = {
-            'Cookie': f'.ROBLOSECURITY={cookie}',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Accept': 'application/json',
-            'Referer': 'https://www.roblox.com/'
-        }
-        
-        if csrf_token:
-            headers['X-CSRF-TOKEN'] = csrf_token
-            
-        for attempt in range(retry_count):
-            try:
-                if method.upper() == 'POST':
-                    response = self.session.post(url, headers=headers, timeout=15)
-                else:
-                    response = self.session.get(url, headers=headers, timeout=15)
-                
-                if response.status_code == 200:
-                    return response
-                elif response.status_code == 401:
-                    return None  # Неавторизован
-                elif response.status_code == 403:
-                    # Пробуем обновить CSRF токен
-                    new_csrf = self.get_csrf_token(cookie)
-                    if new_csrf and attempt < retry_count - 1:
-                        headers['X-CSRF-TOKEN'] = new_csrf
-                        time.sleep(1)
-                        continue
-                    return None
-                elif response.status_code == 429:
-                    # Rate limit - ждем и пробуем снова
-                    time.sleep(3)
-                    continue
-                    
-            except requests.exceptions.Timeout:
-                if attempt < retry_count - 1:
-                    time.sleep(2)
-                    continue
-            except Exception as e:
-                if attempt < retry_count - 1:
-                    time.sleep(1)
-                    continue
-                    
-        return None
-
-    def check_single_cookie(self, cookie):
-        """Улучшенная проверка куки"""
-        clean_cookie = self.clean_cookie(cookie)
-        if not clean_cookie:
-            return self.error_result(cookie, 'Invalid cookie format')
-        
+    async def get_detailed_info(self, session, cookie, user_id, auth_data):
+        """Получение детальной информации"""
         try:
-            # Получаем CSRF токен
-            csrf_token = self.get_csrf_token(clean_cookie)
-            
-            # Проверяем базовую аутентификацию
-            auth_response = self.make_authenticated_request(
-                'https://users.roblox.com/v1/users/authenticated',
-                clean_cookie,
-                csrf_token
-            )
-            
-            if not auth_response or auth_response.status_code != 200:
-                return self.error_result(clean_cookie, 'Authentication failed')
-                
-            auth_data = auth_response.json()
-            if not auth_data.get('id'):
-                return self.error_result(clean_cookie, 'Invalid user data')
-                
-            user_id = auth_data['id']
-            
-            # Получаем расширенную информацию
-            account_info = self.get_detailed_account_info(clean_cookie, csrf_token, user_id, auth_data)
-            if not account_info:
-                return self.error_result(clean_cookie, 'Failed to get account info')
-                
-            return {
-                'valid': True,
-                'cookie': clean_cookie,
-                'account_info': account_info,
-                'checked_at': datetime.now().isoformat()
-            }
-            
-        except Exception as e:
-            return self.error_result(clean_cookie, f'Check error: {str(e)}')
-
-    def get_detailed_account_info(self, cookie, csrf_token, user_id, auth_data):
-        """Получение детальной информации об аккаунте"""
-        try:
-            # Базовая информация из auth response
+            # Базовая информация
             base_info = {
                 'username': auth_data.get('name', 'N/A'),
                 'display_name': auth_data.get('displayName', auth_data.get('name', 'N/A')),
                 'user_id': user_id,
                 'profile_url': f'https://www.roblox.com/users/{user_id}/profile',
-                'created_date': auth_data.get('created', ''),
                 'is_banned': auth_data.get('isBanned', False)
             }
             
-            # Детальная информация профиля
-            profile_info = self.get_profile_info(cookie, csrf_token, user_id)
-            base_info.update(profile_info)
+            # Параллельные запросы для скорости
+            tasks = [
+                self.get_economy_info(session, cookie, user_id),
+                self.get_premium_status(session, cookie, user_id),
+                self.get_social_info(session, cookie, user_id),
+                self.get_security_info(session, cookie, user_id),
+                self.get_profile_info(session, cookie, user_id)
+            ]
             
-            # Экономика
-            economy_info = self.get_economy_info(cookie, csrf_token)
-            base_info.update(economy_info)
+            results = await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Premium статус
-            premium_info = self.get_premium_status(cookie, csrf_token, user_id)
-            base_info.update(premium_info)
+            economy, premium, social, security, profile = results
             
-            # Социальная информация
-            social_info = self.get_social_info(cookie, csrf_token, user_id)
-            base_info.update(social_info)
-            
-            # Безопасность
-            security_info = self.get_security_info(cookie, csrf_token, user_id)
-            base_info.update(security_info)
-            
-            # RAP и дополнительные метрики
-            additional_info = self.get_additional_metrics(cookie, csrf_token, user_id)
-            base_info.update(additional_info)
+            # Объединяем результаты
+            base_info.update(economy or {})
+            base_info.update(premium or {})
+            base_info.update(social or {})
+            base_info.update(security or {})
+            base_info.update(profile or {})
             
             # Расчет возраста аккаунта
-            age_info = self.calculate_account_age(base_info['created_date'])
-            base_info.update(age_info)
+            if auth_data.get('created'):
+                age_info = self.calculate_account_age(auth_data['created'])
+                base_info.update(age_info)
             
-            # Расчет стоимости
+            # Расчет стоимости аккаунта
             base_info['account_value'] = self.calculate_account_value(
-                base_info['robux_balance'],
-                base_info['premium'],
-                base_info['account_age_years'],
-                base_info['friends_count'],
-                base_info['rap_value']
+                base_info.get('robux_balance', 0),
+                base_info.get('premium', False),
+                base_info.get('account_age_years', 0),
+                base_info.get('friends_count', 0),
+                base_info.get('rap_value', 0)
             )
             
             return base_info
             
         except Exception as e:
-            print(f"Detailed account info error: {e}")
+            print(f"Detailed info error: {e}")
             return None
 
-    def get_profile_info(self, cookie, csrf_token, user_id):
-        """Информация профиля"""
-        try:
-            response = self.make_authenticated_request(
-                f'https://users.roblox.com/v1/users/{user_id}',
-                cookie,
-                csrf_token
-            )
-            if response and response.status_code == 200:
-                data = response.json()
-                return {
-                    'description': data.get('description', ''),
-                    'followers_count': data.get('followersCount', 0),
-                    'following_count': data.get('followingsCount', 0),
-                }
-        except:
-            pass
-        return {
-            'description': '',
-            'followers_count': 0,
-            'following_count': 0
-        }
-
-    def get_economy_info(self, cookie, csrf_token):
+    async def get_economy_info(self, session, cookie, user_id):
         """Информация об экономике"""
         try:
-            response = self.make_authenticated_request(
-                'https://economy.roblox.com/v1/users/currency',
-                cookie,
-                csrf_token
-            )
-            if response and response.status_code == 200:
-                data = response.json()
-                return {
-                    'robux_balance': data.get('robux', 0),
-                    'pending_robux': data.get('pendingRobux', 0),
-                    'total_robux': data.get('robux', 0) + data.get('pendingRobux', 0)
-                }
+            url = f'https://economy.roblox.com/v1/users/{user_id}/currency'
+            headers = {'Cookie': f'.ROBLOSECURITY={cookie}', **self.headers}
+            
+            async with session.get(url, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return {
+                        'robux_balance': data.get('robux', 0),
+                        'pending_robux': data.get('pendingRobux', 0),
+                        'total_robux': data.get('robux', 0) + data.get('pendingRobux', 0)
+                    }
         except:
             pass
-        return {
-            'robux_balance': 0,
-            'pending_robux': 0,
-            'total_robux': 0
-        }
+        return {'robux_balance': 0, 'pending_robux': 0, 'total_robux': 0}
 
-    def get_premium_status(self, cookie, csrf_token, user_id):
+    async def get_premium_status(self, session, cookie, user_id):
         """Статус Premium"""
         try:
-            response = self.make_authenticated_request(
-                f'https://premiumfeatures.roblox.com/v1/users/{user_id}/premium',
-                cookie,
-                csrf_token
-            )
-            if response and response.status_code == 200:
-                data = response.json()
-                return {
-                    'premium': data.get('isPremium', False),
-                    'premium_status': 'Active' if data.get('isPremium') else 'Inactive'
-                }
+            url = f'https://premiumfeatures.roblox.com/v1/users/{user_id}/premium'
+            headers = {'Cookie': f'.ROBLOSECURITY={cookie}', **self.headers}
+            
+            async with session.get(url, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return {
+                        'premium': data.get('isPremium', False),
+                        'premium_status': 'Active' if data.get('isPremium') else 'Inactive'
+                    }
         except:
             pass
-        return {
-            'premium': False,
-            'premium_status': 'Inactive'
-        }
+        return {'premium': False, 'premium_status': 'Inactive'}
 
-    def get_social_info(self, cookie, csrf_token, user_id):
+    async def get_social_info(self, session, cookie, user_id):
         """Социальная информация"""
-        friends_count = 0
         try:
-            response = self.make_authenticated_request(
-                f'https://friends.roblox.com/v1/users/{user_id}/friends/count',
-                cookie,
-                csrf_token
-            )
-            if response and response.status_code == 200:
-                data = response.json()
-                friends_count = data.get('count', 0)
+            # Количество друзей
+            url = f'https://friends.roblox.com/v1/users/{user_id}/friends/count'
+            headers = {'Cookie': f'.ROBLOSECURITY={cookie}', **self.headers}
+            
+            async with session.get(url, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return {'friends_count': data.get('count', 0)}
         except:
             pass
-            
-        return {
-            'friends_count': friends_count
-        }
+        return {'friends_count': 0}
 
-    def get_security_info(self, cookie, csrf_token, user_id):
+    async def get_security_info(self, session, cookie, user_id):
         """Информация о безопасности"""
-        tfa_enabled = False
         try:
-            response = self.make_authenticated_request(
-                'https://twostepverification.roblox.com/v1/users/' + str(user_id) + '/configuration',
-                cookie,
-                csrf_token
-            )
-            if response and response.status_code == 200:
-                data = response.json()
-                tfa_enabled = data.get('twoStepVerificationEnabled', False)
+            # Проверка 2FA
+            url = f'https://twostepverification.roblox.com/v1/users/{user_id}/configuration'
+            headers = {'Cookie': f'.ROBLOSECURITY={cookie}', **self.headers}
+            
+            async with session.get(url, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return {'2fa_enabled': data.get('twoStepVerificationEnabled', False)}
         except:
             pass
-            
-        return {
-            '2fa_enabled': tfa_enabled
-        }
+        return {'2fa_enabled': False}
 
-    def get_additional_metrics(self, cookie, csrf_token, user_id):
-        """Дополнительные метрики"""
-        rap_value = 0
+    async def get_profile_info(self, session, cookie, user_id):
+        """Информация профиля"""
         try:
-            # Простая оценка RAP на основе инвентаря
-            response = self.make_authenticated_request(
-                f'https://inventory.roblox.com/v1/users/{user_id}/assets/collectibles?limit=50',
-                cookie,
-                csrf_token
-            )
-            if response and response.status_code == 200:
-                data = response.json()
-                rap_value = len(data.get('data', [])) * 50  # Базовая оценка
+            url = f'https://users.roblox.com/v1/users/{user_id}'
+            headers = {'Cookie': f'.ROBLOSECURITY={cookie}', **self.headers}
+            
+            async with session.get(url, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return {
+                        'description': data.get('description', '')[:200],
+                        'followers_count': data.get('followersCount', 0),
+                        'following_count': data.get('followingsCount', 0),
+                    }
         except:
             pass
-            
-        return {
-            'rap_value': rap_value
-        }
+        return {'description': '', 'followers_count': 0, 'following_count': 0}
 
     def calculate_account_age(self, created_date_str):
         """Расчет возраста аккаунта"""
-        if not created_date_str:
-            return {'account_age_days': 0, 'account_age_years': 0, 'formatted_date': 'Unknown'}
-        
         try:
             created_date = datetime.fromisoformat(created_date_str.replace('Z', '+00:00'))
             now = datetime.now()
@@ -575,46 +430,79 @@ class AdvancedRobloxChecker:
         except:
             return 5.0
 
-    def error_result(self, cookie, error):
-        return {
-            'valid': False,
-            'cookie': cookie,
-            'error': error,
-            'checked_at': datetime.now().isoformat()
-        }
+    async def check_single_cookie(self, cookie):
+        """Проверка одной куки"""
+        clean_cookie = self.clean_cookie(cookie)
+        if not clean_cookie:
+            return {
+                'valid': False,
+                'cookie': cookie,
+                'error': 'Invalid cookie format',
+                'checked_at': datetime.now().isoformat()
+            }
+        
+        try:
+            account_info = await self.get_account_info(clean_cookie)
+            
+            if account_info:
+                return {
+                    'valid': True,
+                    'cookie': clean_cookie,
+                    'account_info': account_info,
+                    'checked_at': datetime.now().isoformat()
+                }
+            else:
+                return {
+                    'valid': False,
+                    'cookie': clean_cookie,
+                    'error': 'Authentication failed',
+                    'checked_at': datetime.now().isoformat()
+                }
+                
+        except Exception as e:
+            return {
+                'valid': False,
+                'cookie': clean_cookie,
+                'error': f'Check error: {str(e)}',
+                'checked_at': datetime.now().isoformat()
+            }
 
-    def check_multiple_cookies(self, cookies):
+    async def check_multiple_cookies(self, cookies):
         """Проверка нескольких куки"""
         valid_cookies = []
         
-        # Фильтрация и очистка куки
+        # Фильтрация куки
         for cookie in cookies:
             clean_cookie = self.clean_cookie(cookie)
             if clean_cookie:
                 valid_cookies.append(clean_cookie)
         
         if not valid_cookies:
-            return [self.error_result("", "No valid cookies found")]
+            return [{
+                'valid': False,
+                'cookie': "",
+                'error': "No valid cookies found",
+                'checked_at': datetime.now().isoformat()
+            }]
         
-        results = []
-        max_workers = min(2, len(valid_cookies))  # Меньше потоков для стабильности
+        # Проверка с ограничением параллельных запросов
+        semaphore = asyncio.Semaphore(3)  # Максимум 3 одновременных запроса
         
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            future_to_cookie = {
-                executor.submit(self.check_single_cookie, cookie): cookie 
-                for cookie in valid_cookies
-            }
-            
-            for future in as_completed(future_to_cookie):
-                try:
-                    result = future.result(timeout=60)
-                    results.append(result)
-                    time.sleep(2)  # Большая задержка для избежания бана
-                except Exception as e:
-                    cookie = future_to_cookie[future]
-                    results.append(self.error_result(cookie, f"Check timeout: {str(e)}"))
+        async def check_with_semaphore(cookie):
+            async with semaphore:
+                return await self.check_single_cookie(cookie)
+        
+        tasks = [check_with_semaphore(cookie) for cookie in valid_cookies]
+        results = await asyncio.gather(*tasks)
         
         return results
+
+# Синхронная обертка для асинхронных функций
+def async_to_sync(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        return asyncio.run(f(*args, **kwargs))
+    return wrapper
 
 checker = AdvancedRobloxChecker()
 
@@ -626,17 +514,15 @@ def index():
 
 @app.route('/api/global_stats')
 def api_global_stats():
-    """API для получения глобальной статистики"""
     try:
         stats = get_global_stats()
-        stats['active_users'] = get_active_users_count()  # Теперь реальные активные пользователи
+        stats['active_users'] = get_active_users_count()
         return jsonify(stats)
     except Exception as e:
         return jsonify({'error': f'Stats error: {str(e)}'}), 500
 
 @app.route('/api/history')
 def api_history():
-    """API для получения истории"""
     try:
         user_id = get_user_id()
         update_user_session(user_id)
@@ -646,8 +532,8 @@ def api_history():
         return jsonify({'error': f'Database error: {str(e)}'}), 500
 
 @app.route('/api/check', methods=['POST'])
-def api_check_cookies():
-    """API для проверки куки"""
+@async_to_sync
+async def api_check_cookies():
     try:
         user_id = get_user_id()
         update_user_session(user_id)
@@ -668,7 +554,7 @@ def api_check_cookies():
         if len(cookies) > 3000:
             return jsonify({'error': 'Too many cookies. Maximum 3000 per request.'}), 400
         
-        results = checker.check_multiple_cookies(cookies)
+        results = await checker.check_multiple_cookies(cookies)
         
         session_id = datetime.now().strftime('%Y%m%d_%H%M%S_') + ''.join(random.choices('0123456789abcdef', k=8))
         valid_count = len([r for r in results if r.get('valid', False)])
@@ -689,7 +575,6 @@ def api_check_cookies():
 
 @app.route('/api/download/<session_id>')
 def api_download_results(session_id):
-    """API для скачивания результатов"""
     try:
         user_id = get_user_id()
         update_user_session(user_id)
@@ -728,7 +613,6 @@ def api_download_results(session_id):
                     'premium': acc['premium'],
                     'account_age': acc['account_age_days'],
                     'friends': acc['friends_count'],
-                    'rap_value': acc['rap_value'],
                     'account_value': acc['account_value'],
                     'created_date': acc['formatted_date']
                 })
@@ -745,7 +629,6 @@ def api_download_results(session_id):
 
 @app.route('/api/session/<session_id>')
 def api_get_session(session_id):
-    """API для получения результатов сессии"""
     try:
         user_id = get_user_id()
         update_user_session(user_id)
@@ -765,7 +648,6 @@ def api_get_session(session_id):
 
 @app.route('/api/delete/<session_id>', methods=['DELETE'])
 def api_delete_session(session_id):
-    """API для удаления сессии"""
     try:
         user_id = get_user_id()
         update_user_session(user_id)

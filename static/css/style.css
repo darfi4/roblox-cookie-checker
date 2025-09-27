@@ -637,72 +637,75 @@ body {
     flex-wrap: wrap;
 }
 
-/* Модальное окно */
+/* Модальное окно - исправленная версия */
 .modal {
     display: none;
     position: fixed;
-    top: 0;
+    z-index: 1000;
     left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    z-index: 1000;
+    background-color: rgba(0, 0, 0, 0.8);
     backdrop-filter: blur(5px);
 }
 
 .modal-content {
-    position: absolute;
+    position: fixed;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     width: 90%;
-    max-width: 800px;
+    max-width: 600px;
     max-height: 80vh;
     overflow-y: auto;
-    background: var(--card-bg);
-    border: 2px solid var(--neon-purple);
-    border-radius: 15px;
-    box-shadow: 0 0 50px rgba(139, 92, 246, 0.5);
+    margin: 0;
+    padding: 0;
+    border: none;
+    animation: modalAppear 0.3s ease-out;
+}
+
+@keyframes modalAppear {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -48%);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%);
+    }
 }
 
 .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    position: sticky;
+    top: 0;
+    background: var(--card-bg);
+    z-index: 10;
     padding: 1.5rem;
     border-bottom: 1px solid var(--card-border);
-}
-
-.modal-header h3 {
-    color: var(--neon-cyan);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.close-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 1.5rem;
-    cursor: pointer;
-    padding: 0.5rem;
-    transition: all 0.3s ease;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-}
-
-.close-btn:hover {
-    background: rgba(255, 56, 96, 0.1);
-    color: var(--error);
+    margin: 0;
 }
 
 .modal-body {
     padding: 1.5rem;
+    margin: 0;
+}
+
+.close-btn {
+    position: absolute;
+    right: 1rem;
+    top: 1rem;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.3s;
+    z-index: 11;
+}
+
+.close-btn:hover {
+    color: var(--neon-purple);
 }
 
 /* Меню контактов */
