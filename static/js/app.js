@@ -557,10 +557,9 @@ function createAccountCard(result, index) {
     const formatted_date = safeString(acc.formatted_date, 'Unknown');
     const account_age_days = safeNumber(acc.account_age_days, 0);
     const account_age_years = safeNumber(acc.account_age_years, 0);
-    const is_banned = safeBoolean(acc.is_banned, false);
     const robux_balance = safeNumber(acc.robux_balance, 0);
     const pending_robux = safeNumber(acc.pending_robux, 0);
-    const total_robux = safeNumber(acc.total_robux, 0);
+    const total_spent_robux = safeNumber(acc.total_spent_robux, 0); // Всего потрачено
     const rap_value = safeNumber(acc.rap_value, 0);
     const premium = safeBoolean(acc.premium, false);
     const two_fa_enabled = safeBoolean(acc['2fa_enabled'], false);
@@ -582,7 +581,6 @@ function createAccountCard(result, index) {
     const phone_status = safeString(acc.phone_status, 'No');
     const pin_enabled = safeBoolean(acc.pin_enabled, false);
     const groups_owned = safeNumber(acc.groups_owned, 0);
-    const groups_members = safeNumber(acc.groups_members, 0);
     const groups_pending = safeNumber(acc.groups_pending, 0);
     const groups_funds = safeNumber(acc.groups_funds, 0);
     const above_13 = safeString(acc.above_13, 'Unknown');
@@ -622,9 +620,9 @@ function createAccountCard(result, index) {
                         <span>${account_age_days.toLocaleString()} дней (${account_age_years.toFixed(1)} лет)</span>
                     </div>
                     <div class="info-row">
-                        <span>Статус бана:</span>
-                        <span class="status ${is_banned ? 'error' : 'success'}">
-                            ${is_banned ? 'ЗАБАНЕН' : 'АКТИВЕН'}
+                        <span>Наличие карты:</span>
+                        <span class="status ${card_count > 0 ? 'success' : 'error'}">
+                            ${card_count > 0 ? 'ДА' : 'НЕТ'} (${card_count})
                         </span>
                     </div>
                 </div>
@@ -640,8 +638,8 @@ function createAccountCard(result, index) {
                         <span>${pending_robux.toLocaleString()}</span>
                     </div>
                     <div class="info-row">
-                        <span>Всего Robux:</span>
-                        <span class="total-spent">${total_robux.toLocaleString()} R$</span>
+                        <span>Всего потрачено:</span>
+                        <span class="total-spent">${total_spent_robux.toLocaleString()} R$</span>
                     </div>
                     <div class="info-row">
                         <span>RAP стоимость:</span>
@@ -686,10 +684,6 @@ function createAccountCard(result, index) {
                 <div class="info-group">
                     <h4><i class="fas fa-shield-alt"></i> БЕЗОПАСНОСТЬ</h4>
                     <div class="info-row">
-                        <span>Привязанные карты:</span>
-                        <span>${card_count}</span>
-                    </div>
-                    <div class="info-row">
                         <span>Приватность инвентаря:</span>
                         <span>${inventory_privacy}</span>
                     </div>
@@ -717,7 +711,9 @@ function createAccountCard(result, index) {
                     </div>
                     <div class="info-row">
                         <span>Телефон:</span>
-                        <span>${phone_status}</span>
+                        <span class="status ${phone_status === 'Yes' ? 'success' : 'error'}">
+                            ${phone_status === 'Yes' ? 'ПРИВЯЗАН' : 'НЕТ'}
+                        </span>
                     </div>
                     <div class="info-row">
                         <span>PIN код:</span>
@@ -740,10 +736,6 @@ function createAccountCard(result, index) {
                     <div class="info-row">
                         <span>Владелец групп:</span>
                         <span>${groups_owned}</span>
-                    </div>
-                    <div class="info-row">
-                        <span>Участников в группах:</span>
-                        <span>${groups_members.toLocaleString()}</span>
                     </div>
                     <div class="info-row">
                         <span>Pending в группах:</span>
