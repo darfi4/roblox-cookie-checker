@@ -755,35 +755,35 @@ class AdvancedRobloxChecker:
         return {'email_status': 'Unknown'}
 
     async def get_total_spent(self, session, cookie, user_id):
-    """Общие траты за все время"""
-    try:
-        total_spent = 0
-        next_cursor = ''
-        max_pages = 2  # Ограничиваем для скорости
-        
-        for page in range(max_pages):
-            url = f'https://economy.roblox.com/v2/users/{user_id}/transactions?transactionType=2&limit=100&cursor={next_cursor}'
-            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+        """Общие траты за все время"""
+        try:
+            total_spent = 0
+            next_cursor = ''
+            max_pages = 2  # Ограничиваем для скорости
             
-            if not data or 'data' not in data:
-                break
+            for page in range(max_pages):
+                url = f'https://economy.roblox.com/v2/users/{user_id}/transactions?transactionType=2&limit=100&cursor={next_cursor}'
+                data = await self.make_authenticated_request(session, url, cookie, 'GET')
                 
-            for transaction in data['data']:
-                if 'currency' in transaction and 'amount' in transaction['currency']:
-                    amount = transaction['currency']['amount']
-                    if amount < 0:  # Траты имеют отрицательное значение
-                        total_spent += abs(amount)
+                if not data or 'data' not in data:
+                    break
+                    
+                for transaction in data['data']:
+                    if 'currency' in transaction and 'amount' in transaction['currency']:
+                        amount = transaction['currency']['amount']
+                        if amount < 0:  # Траты имеют отрицательное значение
+                            total_spent += abs(amount)
+                
+                next_cursor = data.get('nextPageCursor')
+                if not next_cursor:
+                    break
             
-            next_cursor = data.get('nextPageCursor')
-            if not next_cursor:
-                break
+            return {'total_spent_robux': total_spent}
+            
+        except Exception as e:
+            print(f"Total spent error: {e}")
         
-        return {'total_spent_robux': total_spent}
-        
-    except Exception as e:
-        print(f"Total spent error: {e}")
-    
-    return {'total_spent_robux': 0}
+        return {'total_spent_robux': 0}
 
     async def get_phone_info(self, session, cookie):
         """Информация о телефоне - исправленная версия"""
