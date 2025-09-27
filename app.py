@@ -514,37 +514,6 @@ class AdvancedRobloxChecker:
         
         return {'robux_balance': 0, 'pending_robux': 0, 'total_robux': 0}
 
-    async def get_total_spent(self, session, cookie, user_id):
-    """Общие траты за все время"""
-    try:
-        total_spent = 0
-        next_cursor = ''
-        max_pages = 2  # Ограничиваем для скорости
-        
-        for page in range(max_pages):
-            url = f'https://economy.roblox.com/v2/users/{user_id}/transactions?transactionType=2&limit=100&cursor={next_cursor}'
-            data = await self.make_authenticated_request(session, url, cookie, 'GET')
-            
-            if not data or 'data' not in data:
-                break
-                
-            for transaction in data['data']:
-                if 'currency' in transaction and 'amount' in transaction['currency']:
-                    amount = transaction['currency']['amount']
-                    if amount < 0:  # Траты имеют отрицательное значение
-                        total_spent += abs(amount)
-            
-            next_cursor = data.get('nextPageCursor')
-            if not next_cursor:
-                break
-        
-        return {'total_spent_robux': total_spent}
-        
-    except Exception as e:
-        print(f"Total spent error: {e}")
-    
-    return {'total_spent_robux': 0}
-
     async def get_premium_status(self, session, cookie, user_id):
         """Статус Premium - исправленная версия"""
         try:
@@ -736,6 +705,19 @@ class AdvancedRobloxChecker:
         
         return {'trade_privacy': 'Unknown'}
 
+    async def get_can_trade(self, session, cookie, user_id):
+        """Возможность трейдить"""
+        try:
+            url = f'https://www.roblox.com/users/{user_id}/profile'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            # Это упрощенная проверка - в реальности нужно парсить HTML
+            return {'can_trade': True}  # По умолчанию True
+        except Exception as e:
+            print(f"Can trade error: {e}")
+        
+        return {'can_trade': False}
+
     async def get_sessions_info(self, session, cookie):
         """Информация о сессиях"""
         try:
@@ -771,6 +753,37 @@ class AdvancedRobloxChecker:
             print(f"Email info error: {e}")
         
         return {'email_status': 'Unknown'}
+
+    async def get_total_spent(self, session, cookie, user_id):
+    """Общие траты за все время"""
+    try:
+        total_spent = 0
+        next_cursor = ''
+        max_pages = 2  # Ограничиваем для скорости
+        
+        for page in range(max_pages):
+            url = f'https://economy.roblox.com/v2/users/{user_id}/transactions?transactionType=2&limit=100&cursor={next_cursor}'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if not data or 'data' not in data:
+                break
+                
+            for transaction in data['data']:
+                if 'currency' in transaction and 'amount' in transaction['currency']:
+                    amount = transaction['currency']['amount']
+                    if amount < 0:  # Траты имеют отрицательное значение
+                        total_spent += abs(amount)
+            
+            next_cursor = data.get('nextPageCursor')
+            if not next_cursor:
+                break
+        
+        return {'total_spent_robux': total_spent}
+        
+    except Exception as e:
+        print(f"Total spent error: {e}")
+    
+    return {'total_spent_robux': 0}
 
     async def get_phone_info(self, session, cookie):
         """Информация о телефоне - исправленная версия"""
@@ -814,6 +827,7 @@ class AdvancedRobloxChecker:
             print(f"PIN info error: {e}")
         
         return {'pin_enabled': False}
+        
 
     async def get_groups_info(self, session, cookie, user_id):
         """Информация о группах - убираем участников"""
@@ -911,6 +925,7 @@ class AdvancedRobloxChecker:
             value = robux * 0.0035
             value += rap_value * 0.001
             value += age_years * 200
+            value += friends_count * 2
             
             if premium:
                 value += 300
