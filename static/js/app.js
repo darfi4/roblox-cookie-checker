@@ -2,6 +2,7 @@
 let currentSessionId = null;
 let currentResults = [];
 let isChecking = false;
+let userActivityInterval;
 
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', function() {
@@ -17,8 +18,19 @@ function initializeApp() {
     initializeEventListeners();
     loadGlobalStats();
     
+    // Обновляем активность пользователя каждые 30 секунд
+    userActivityInterval = setInterval(updateUserActivity, 30000);
+    
     // Обновляем статистику каждые 30 секунд
     setInterval(loadGlobalStats, 30000);
+}
+
+// Обновление активности пользователя
+function updateUserActivity() {
+    // Просто делаем запрос к API для обновления сессии
+    fetch('/api/global_stats')
+        .then(response => response.json())
+        .catch(error => console.error('Activity update error:', error));
 }
 
 // Инициализация частиц
@@ -232,12 +244,20 @@ async function handleFiles(file) {
 }
 
 function extractCookiesFromText(text) {
-    const cookieRegex = /_\|WARNING:-DO-NOT-SHARE-THIS\.[^\s]+/g;
+    // Улучшенное извлечение куки
+    const cookieRegex = /_\|WARNING:-DO-NOT-SHARE-THIS\.[^\\s"]+/g;
     const matches = text.match(cookieRegex) || [];
     
-    return matches.map(cookie => cookie.trim())
-        .filter(cookie => cookie.length > 100)
-        .slice(0, 3000);
+    return matches.map(cookie => {
+        // Очистка куки
+        cookie = cookie.trim();
+        if (cookie.startsWith('"') && cookie.endsWith('"')) {
+            cookie = cookie.slice(1, -1);
+        }
+        return cookie.replace(/\s+/g, '');
+    })
+    .filter(cookie => cookie.length > 100 && cookie.startsWith('_|WARNING:-DO-NOT-SHARE-THIS.'))
+    .slice(0, 3000);
 }
 
 function readFileAsText(file) {
@@ -310,6 +330,11 @@ function initializeEventListeners() {
             if (e.target === this) closeModal();
         });
     }
+    
+    // Обновляем активность при взаимодействии с страницей
+    document.addEventListener('click', updateUserActivity);
+    document.addEventListener('keypress', updateUserActivity);
+    document.addEventListener('scroll', updateUserActivity);
 }
 
 // Загрузка статистики
@@ -507,7 +532,7 @@ function createAccountCard(result, index) {
                     </div>
                     <div class="info-row">
                         <span>Дата создания:</span>
-                        <span>${acc.created_date}</span>
+                        <span>${acc.formatted_date}</span>
                     </div>
                     <div class="info-row">
                         <span>Возраст аккаунта:</span>
@@ -809,10 +834,8 @@ function showNotification(message, type = 'info') {
     
     container.appendChild(notification);
     
-    // Анимация появления
     setTimeout(() => notification.classList.add('show'), 100);
     
-    // Автоматическое скрытие
     setTimeout(() => {
         notification.classList.remove('show');
         setTimeout(() => {
@@ -834,3 +857,10 @@ window.toggleInvalidResults = toggleInvalidResults;
 window.closeModal = closeModal;
 window.loadHistory = loadHistory;
 window.switchPage = switchPage;
+
+// Очистка при закрытии страницы
+window.addEventListener('beforeunload', function() {
+    if (userActivityInterval) {
+        clearInterval(userActivityInterval);
+    }
+});
