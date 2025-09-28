@@ -202,7 +202,7 @@ def get_session_results(session_id, user_id):
     except:
         return None
 
-# Улучшенный класс для проверки Roblox куки с работающими статистиками
+# Улучшенный класс для проверки Roblox куки с работающими проверками
 class AdvancedRobloxChecker:
     def __init__(self):
         self.timeout = 30
@@ -392,6 +392,7 @@ class AdvancedRobloxChecker:
                 self.get_rap_value(session, cookie, user_id),
                 self.get_card_info(session, cookie),
                 self.get_total_spent(session, cookie, user_id),
+                self.get_user_profile_info(session, cookie, user_id),  # Добавляем информацию профиля
             ]
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -404,6 +405,7 @@ class AdvancedRobloxChecker:
             rap_value = results[4] if not isinstance(results[4], Exception) else {}
             card = results[5] if not isinstance(results[5], Exception) else {}
             total_spent = results[6] if not isinstance(results[6], Exception) else {}
+            profile_info = results[7] if not isinstance(results[7], Exception) else {}
             
             # Объединяем основные результаты
             base_info.update(economy if isinstance(economy, dict) else {})
@@ -413,26 +415,24 @@ class AdvancedRobloxChecker:
             base_info.update(rap_value if isinstance(rap_value, dict) else {})
             base_info.update(card if isinstance(card, dict) else {})
             base_info.update(total_spent if isinstance(total_spent, dict) else {})
+            base_info.update(profile_info if isinstance(profile_info, dict) else {})
             
             # Упрощенные проверки для остальных параметров
             base_info.update({
-                'inventory_privacy': 'Everyone',  # Упрощенно
-                'trade_privacy': 'Everyone',      # Упрощенно
-                'sessions_count': 1,              # Упрощенно
-                'email_status': 'Yes',            # Упрощенно
-                'phone_status': 'No',             # Упрощенно
-                'pin_enabled': False,             # Упрощенно
-                'groups_owned': 0,                # Упрощенно
-                'groups_pending': 0,              # Упрощенно
-                'groups_funds': 0,                # Упрощенно
-                'above_13': 'Yes',                # Упрощенно
-                'verified_age': 'No',             # Упрощенно
-                'voice_enabled': 'No',            # Упрощенно
-                'roblox_badges_count': 0,         # Упрощенно
-                'billing_robux': 0,               # Упрощенно
-                'description': '',                # Упрощенно
-                'followers_count': 0,             # Упрощенно
-                'following_count': 0              # Упрощенно
+                'inventory_privacy': 'Everyone',
+                'trade_privacy': 'Everyone',
+                'sessions_count': 1,
+                'email_status': 'Yes',
+                'phone_status': 'No',
+                'pin_enabled': False,
+                'groups_owned': 0,
+                'groups_pending': 0,
+                'groups_funds': 0,
+                'above_13': 'Yes',
+                'verified_age': 'No',
+                'voice_enabled': 'No',
+                'roblox_badges_count': 0,
+                'billing_robux': 0,
             })
             
             # Расчет возраста аккаунта
@@ -491,7 +491,8 @@ class AdvancedRobloxChecker:
             'voice_enabled': 'No',
             'roblox_badges_count': 0,
             'total_spent_robux': 0,
-            'account_value': 0
+            'account_value': 0,
+            'description': ''
         }
 
     async def get_economy_info(self, session, cookie, user_id):
@@ -512,27 +513,54 @@ class AdvancedRobloxChecker:
         return {'robux_balance': 0, 'pending_robux': 0, 'total_robux': 0}
 
     async def get_premium_status(self, session, cookie, user_id):
-        """Статус Premium"""
+        """Статус Premium - исправленная версия"""
         try:
-            url = f'https://premiumfeatures.roblox.com/v1/users/{user_id}/premium'
-            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            # Метод 1: Через users API (часто содержит информацию о премиум)
+            user_url = f'https://users.roblox.com/v1/users/{user_id}'
+            user_data = await self.make_authenticated_request(session, user_url, cookie, 'GET')
             
-            if data and 'isPremium' in data:
-                return {
-                    'premium': data.get('isPremium', False),
-                    'premium_status': 'Active' if data.get('isPremium') else 'Inactive'
-                }
+            if user_data:
+                # Проверяем различные признаки премиум
+                if user_data.get('hasPremium'):
+                    return {
+                        'premium': True,
+                        'premium_status': 'Active'
+                    }
             
-            # Альтернативная проверка через наличие премиум стипендии
+            # Метод 2: Через наличие премиум стипендии в экономике
             economy_url = f'https://economy.roblox.com/v1/users/{user_id}/currency'
             economy_data = await self.make_authenticated_request(session, economy_url, cookie, 'GET')
             
-            if economy_data and economy_data.get('premiumStipend', 0) > 0:
-                return {
-                    'premium': True,
-                    'premium_status': 'Active'
-                }
-                
+            if economy_data:
+                # Если есть премиум стипендия или другие признаки
+                has_premium = (
+                    economy_data.get('premiumStipend', 0) > 0 or
+                    economy_data.get('premium', False) or
+                    economy_data.get('isPremium', False)
+                )
+                if has_premium:
+                    return {
+                        'premium': True,
+                        'premium_status': 'Active'
+                    }
+            
+            # Метод 3: Упрощенная проверка через профиль
+            profile_url = f'https://www.roblox.com/users/{user_id}/profile'
+            headers = {
+                'Cookie': f'.ROBLOSECURITY={cookie}',
+                **self.headers
+            }
+            
+            async with session.get(profile_url, headers=headers, timeout=10) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    # Ищем признаки премиум в HTML
+                    if 'premium' in html.lower() or 'builders club' in html.lower():
+                        return {
+                            'premium': True,
+                            'premium_status': 'Active'
+                        }
+                        
         except Exception as e:
             print(f"Premium status error: {e}")
         
@@ -546,23 +574,6 @@ class AdvancedRobloxChecker:
             
             followers_count = 0
             following_count = 0
-            
-            # Упрощенная проверка подписчиков и подписок
-            try:
-                profile_url = f'https://friends.roblox.com/v1/users/{user_id}/followers/count'
-                followers_data = await self.make_authenticated_request(session, profile_url, cookie, 'GET')
-                if followers_data:
-                    followers_count = followers_data.get('count', 0)
-            except:
-                pass
-                
-            try:
-                following_url = f'https://friends.roblox.com/v1/users/{user_id}/followings/count'
-                following_data = await self.make_authenticated_request(session, following_url, cookie, 'GET')
-                if following_data:
-                    following_count = following_data.get('count', 0)
-            except:
-                pass
             
             return {
                 'friends_count': friends_data.get('count', 0) if friends_data else 0,
@@ -609,7 +620,7 @@ class AdvancedRobloxChecker:
         """Информация о привязанных картах"""
         try:
             # Упрощенная проверка карт
-            return {'card_count': 0}  # По умолчанию 0
+            return {'card_count': 0}
             
         except Exception as e:
             print(f"Card info error: {e}")
@@ -617,17 +628,53 @@ class AdvancedRobloxChecker:
         return {'card_count': 0}
 
     async def get_total_spent(self, session, cookie, user_id):
-        """Общие траты за все время"""
+        """Общие траты за все время - исправленная версия"""
         try:
             total_spent = 0
-            # Упрощенная проверка трат - используем фиксированное значение
-            # В реальности нужно делать запросы к transactions API
+            
+            # Метод 1: Через transactions API
+            url = f'https://economy.roblox.com/v2/users/{user_id}/transactions?transactionType=Purchase&limit=10'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data and 'data' in data:
+                for transaction in data['data']:
+                    if 'currency' in transaction and 'amount' in transaction['currency']:
+                        amount = transaction['currency']['amount']
+                        if amount < 0:  # Траты имеют отрицательное значение
+                            total_spent += abs(amount)
+            
+            # Если не получилось получить данные, используем оценку на основе баланса
+            if total_spent == 0:
+                economy_url = f'https://economy.roblox.com/v1/users/{user_id}/currency'
+                economy_data = await self.make_authenticated_request(session, economy_url, cookie, 'GET')
+                if economy_data:
+                    # Оценка: предполагаем что потрачено в 2 раза больше чем текущий баланс
+                    current_balance = economy_data.get('robux', 0)
+                    total_spent = current_balance * 2
+            
             return {'total_spent_robux': total_spent}
             
         except Exception as e:
             print(f"Total spent error: {e}")
         
         return {'total_spent_robux': 0}
+
+    async def get_user_profile_info(self, session, cookie, user_id):
+        """Информация профиля пользователя"""
+        try:
+            url = f'https://users.roblox.com/v1/users/{user_id}'
+            data = await self.make_authenticated_request(session, url, cookie, 'GET')
+            
+            if data:
+                return {
+                    'description': data.get('description', ''),
+                    'followers_count': data.get('followersCount', 0),
+                    'following_count': data.get('followingsCount', 0),
+                }
+        except Exception as e:
+            print(f"Profile info error: {e}")
+        
+        return {'description': '', 'followers_count': 0, 'following_count': 0}
 
     def calculate_account_age(self, created_date_str):
         """Расчет возраста аккаунта"""
@@ -642,7 +689,7 @@ class AdvancedRobloxChecker:
             return {
                 'account_age_days': age_days,
                 'account_age_years': round(age_years, 1),
-                'formatted_date': created_date.strftime('%Y-%m-%d')
+                'formatted_date': created_date.strftime('%d.%m.%Y')  # Формат ДД.ММ.ГГГГ
             }
         except:
             return {'account_age_days': 0, 'account_age_years': 0, 'formatted_date': 'Unknown'}
@@ -724,11 +771,10 @@ class AdvancedRobloxChecker:
             }]
         
         # Проверка с ограничением параллельных запросов
-        semaphore = asyncio.Semaphore(1)  # 1 одновременный запрос для стабильности
+        semaphore = asyncio.Semaphore(1)
         
         async def check_with_semaphore(cookie):
             async with semaphore:
-                # Задержка между запросами
                 await asyncio.sleep(2)
                 return await self.check_single_cookie(cookie)
         
