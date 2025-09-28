@@ -436,62 +436,55 @@ class AdvancedRobloxChecker:
             }
 
     async def get_premium_status(self, session, cookie, user_id):
-        """Статус Premium - УЛУЧШЕННАЯ ВЕРСИЯ"""
+        """Статус Premium - ПРЯМОЙ МЕТОД ЧЕРЕЗ HTML"""
         try:
-            # Метод 1: Через экономику (самый надежный)
-            economy_url = f'https://economy.roblox.com/v1/users/{user_id}/currency'
-            economy_data = await self.make_authenticated_request(session, economy_url, cookie, 'GET')
-            
-            if economy_data:
-                # Проверяем наличие премиум стипендии
-                if economy_data.get('premiumStipend', 0) > 0:
-                    return {
-                        'premium': True,
-                        'premium_status': 'Active'
-                    }
-            
-            # Метод 2: Через API премиум функций
-            premium_url = 'https://premiumfeatures.roblox.com/v1/users/premium/membership'
-            premium_data = await self.make_authenticated_request(session, premium_url, cookie, 'GET')
-            
-            if premium_data and premium_data.get('hasPremiumMembership'):
-                return {
-                    'premium': True,
-                    'premium_status': 'Active'
-                }
-            
-            # Метод 3: Через профиль пользователя
-            profile_url = f'https://users.roblox.com/v1/users/{user_id}'
-            profile_data = await self.make_authenticated_request(session, profile_url, cookie, 'GET')
-            
-            if profile_data and profile_data.get('hasPremium'):
-                return {
-                    'premium': True,
-                    'premium_status': 'Active'
-                }
-            
-            # Метод 4: Через HTML страницу профиля
-            html_profile_url = f'https://www.roblox.com/users/{user_id}/profile'
+            # Основной метод: проверка через страницу профиля
+            profile_url = f'https://www.roblox.com/users/{user_id}/profile'
             headers = {
                 'Cookie': f'.ROBLOSECURITY={cookie}',
-                **self.headers
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
             
-            async with session.get(html_profile_url, headers=headers, timeout=10) as response:
+            async with session.get(profile_url, headers=headers, timeout=15) as response:
                 if response.status == 200:
                     html = await response.text()
-                    # Ищем признаки премиум в HTML
-                    if 'premium-icon' in html or 'Premium Member' in html or 'ROBLOX Premium' in html:
+                    
+                    # Ищем явные признаки Premium в HTML
+                    premium_indicators = [
+                        'premium-icon', 
+                        'Premium Member',
+                        'ROBLOX Premium',
+                        'rbx-premium',
+                        'is-premium',
+                        'premium-member'
+                    ]
+                    
+                    for indicator in premium_indicators:
+                        if indicator in html:
+                            return {
+                                'premium': True,
+                                'premium_status': 'Active'
+                            }
+                    
+                    # Ищем в мета-данных
+                    meta_premium = re.search(r'"isPremium":\s*(true)', html, re.IGNORECASE)
+                    if meta_premium:
                         return {
                             'premium': True,
                             'premium_status': 'Active'
                         }
             
-            # Метод 5: Через каталог (часто показывает премиум статус)
+            # Дополнительная проверка через каталог
             catalog_url = f'https://catalog.roblox.com/v1/users/{user_id}/items?assetType=Shirt&limit=1'
             catalog_data = await self.make_authenticated_request(session, catalog_url, cookie, 'GET')
             
-            # Если все методы не дали результата - считаем что премиум нет
+            # Если пользователь может получать данные каталога - скорее всего есть Premium
+            if catalog_data and 'data' in catalog_data:
+                return {
+                    'premium': True,
+                    'premium_status': 'Active'
+                }
+            
             return {'premium': False, 'premium_status': 'Inactive'}
                     
         except Exception as e:
@@ -672,184 +665,138 @@ class AdvancedRobloxChecker:
         }
 
     async def get_privacy_settings(self, session, cookie, user_id):
-        """Настройки приватности - УЛУЧШЕННАЯ ВЕРСИЯ"""
+        """Настройки приватности - ПРЯМОЙ МЕТОД ЧЕРЕЗ HTML"""
         try:
-            # Метод 1: Через API приватности
-            privacy_api_url = 'https://accountsettings.roblox.com/v1/privacy'
-            privacy_data = await self.make_authenticated_request(session, privacy_api_url, cookie, 'GET')
+            # Получаем страницу настроек приватности
+            privacy_url = 'https://www.roblox.com/my/account'
+            headers = {
+                'Cookie': f'.ROBLOSECURITY={cookie}',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
             
-            if privacy_data:
-                inventory_privacy = privacy_data.get('inventoryPrivacy', 'Unknown')
-                trade_privacy = privacy_data.get('tradePrivacy', 'Unknown')
-                
-                # Преобразуем значения
-                privacy_map = {
-                    'All': 'Everyone',
-                    'AllUsers': 'Everyone',
-                    'Friends': 'Friends',
-                    'NoOne': 'NoOne',
-                    'None': 'NoOne'
-                }
-                
-                inventory_privacy = privacy_map.get(inventory_privacy, inventory_privacy)
-                trade_privacy = privacy_map.get(trade_privacy, trade_privacy)
-                
-                if inventory_privacy != 'Unknown' and trade_privacy != 'Unknown':
+            async with session.get(privacy_url, headers=headers, timeout=15) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    
+                    # Парсим настройки приватности из выпадающих списков
+                    inventory_privacy = 'Everyone'  # значение по умолчанию
+                    trade_privacy = 'Everyone'      # значение по умолчанию
+                    
+                    # Ищем Inventory Privacy
+                    inventory_match = re.search(r'<select[^>]*id=["\']inventoryPrivacy["\'][^>]*>.*?<option[^>]*selected[^>]*value=["\']([^"\']*)["\']', html, re.DOTALL | re.IGNORECASE)
+                    if inventory_match:
+                        inventory_value = inventory_match.group(1)
+                        if inventory_value == 'AllUsers' or inventory_value == '0':
+                            inventory_privacy = 'Everyone'
+                        elif inventory_value == 'Friends' or inventory_value == '1':
+                            inventory_privacy = 'Friends'
+                        elif inventory_value == 'NoOne' or inventory_value == '2':
+                            inventory_privacy = 'NoOne'
+                    
+                    # Ищем Trade Privacy
+                    trade_match = re.search(r'<select[^>]*id=["\']tradePrivacy["\'][^>]*>.*?<option[^>]*selected[^>]*value=["\']([^"\']*)["\']', html, re.DOTALL | re.IGNORECASE)
+                    if trade_match:
+                        trade_value = trade_match.group(1)
+                        if trade_value == 'AllUsers' or trade_value == '0':
+                            trade_privacy = 'Everyone'
+                        elif trade_value == 'Friends' or trade_value == '1':
+                            trade_privacy = 'Friends'
+                        elif trade_value == 'NoOne' or trade_value == '2':
+                            trade_privacy = 'NoOne'
+                    
                     return {
                         'inventory_privacy': inventory_privacy,
                         'trade_privacy': trade_privacy
                     }
             
-            # Метод 2: Через HTML страницу настроек
-            settings_url = 'https://www.roblox.com/my/account'
-            headers = {
-                'Cookie': f'.ROBLOSECURITY={cookie}',
-                **self.headers
-            }
-            
-            async with session.get(settings_url, headers=headers, timeout=15) as response:
-                if response.status == 200:
-                    html = await response.text()
-                    
-                    # Ищем настройки приватности в данных
-                    import json
-                    
-                    # Пытаемся найти JSON данные
-                    json_match = re.search(r'window\.rbxSettings = ({.*?});', html)
-                    if json_match:
-                        try:
-                            settings_data = json.loads(json_match.group(1))
-                            privacy_settings = settings_data.get('PrivacySettings', {})
-                            
-                            inventory_privacy = privacy_settings.get('InventoryPrivacy', 'Unknown')
-                            trade_privacy = privacy_settings.get('TradePrivacy', 'Unknown')
-                            
-                            if inventory_privacy != 'Unknown' and trade_privacy != 'Unknown':
-                                return {
-                                    'inventory_privacy': inventory_privacy,
-                                    'trade_privacy': trade_privacy
-                                }
-                        except:
-                            pass
-                    
-                    # Альтернативный поиск в HTML
-                    inventory_match = re.search(r'InventoryPrivacy[^>]*>[\s\S]*?<option[^>]*selected[^>]*>([^<]+)', html, re.IGNORECASE)
-                    trade_match = re.search(r'TradePrivacy[^>]*>[\s\S]*?<option[^>]*selected[^>]*>([^<]+)', html, re.IGNORECASE)
-                    
-                    inventory_privacy = 'Unknown'
-                    trade_privacy = 'Unknown'
-                    
-                    if inventory_match:
-                        inventory_privacy = inventory_match.group(1).strip()
-                    if trade_match:
-                        trade_privacy = trade_match.group(1).strip()
-                    
-                    # Если нашли значения, возвращаем их
-                    if inventory_privacy != 'Unknown' or trade_privacy != 'Unknown':
-                        return {
-                            'inventory_privacy': inventory_privacy or 'Unknown',
-                            'trade_privacy': trade_privacy or 'Unknown'
-                        }
-            
-            # Метод 3: Установим значения по умолчанию для новых аккаунтов
             return {
-                'inventory_privacy': 'Everyone',  # По умолчанию для новых аккаунтов
-                'trade_privacy': 'Everyone'       # По умолчанию для новых аккаунтов
+                'inventory_privacy': 'Everyone',
+                'trade_privacy': 'Everyone'
             }
                         
         except Exception as e:
             print(f"Privacy settings error: {e}")
-        
-        # Fallback значения
-        return {
-            'inventory_privacy': 'Everyone',
-            'trade_privacy': 'Everyone'
-        }
+            return {
+                'inventory_privacy': 'Everyone',
+                'trade_privacy': 'Everyone'
+            }
 
     async def get_contact_info(self, session, cookie, user_id):
-        """Информация о контактах и возрасте - УЛУЧШЕННАЯ ВЕРСИЯ"""
+        """Информация о возрасте - ПРЯМОЙ МЕТОД"""
         try:
-            # Получаем основную информацию о пользователе
-            user_url = f'https://users.roblox.com/v1/users/{user_id}'
-            user_data = await self.make_authenticated_request(session, user_url, cookie, 'GET')
+            # Основной метод: через страницу профиля
+            profile_url = f'https://www.roblox.com/users/{user_id}/profile'
+            headers = {
+                'Cookie': f'.ROBLOSECURITY={cookie}',
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
             
-            above_13 = 'Unknown'
-            if user_data:
-                # Проверяем возраст через несколько полей
-                if user_data.get('is13Plus') is not None:
-                    above_13 = 'Yes' if user_data['is13Plus'] else 'No'
-                elif user_data.get('ageBracket') == 1:  # 13+
-                    above_13 = 'Yes'
-                elif user_data.get('ageBracket') == 0:  # Under 13
-                    above_13 = 'No'
-            
-            # Если не определили через API, пробуем через HTML
-            if above_13 == 'Unknown':
-                profile_url = f'https://www.roblox.com/users/{user_id}/profile'
-                headers = {
-                    'Cookie': f'.ROBLOSECURITY={cookie}',
-                    **self.headers
-                }
-                
-                async with session.get(profile_url, headers=headers, timeout=10) as response:
-                    if response.status == 200:
-                        html = await response.text()
-                        # Ищем признаки возраста в HTML
-                        if '13+' in html or 'over13' in html.lower():
+            async with session.get(profile_url, headers=headers, timeout=15) as response:
+                if response.status == 200:
+                    html = await response.text()
+                    
+                    above_13 = 'Unknown'
+                    
+                    # Ищем возраст в мета-данных
+                    age_meta = re.search(r'"is13Plus":\s*(true|false)', html, re.IGNORECASE)
+                    if age_meta:
+                        above_13 = 'Yes' if age_meta.group(1).lower() == 'true' else 'No'
+                    else:
+                        # Ищем текстовые признаки
+                        if '13+' in html or 'Over 13' in html:
                             above_13 = 'Yes'
-                        elif 'under13' in html.lower() or '<13' in html:
+                        elif 'Under 13' in html or '<13' in html:
                             above_13 = 'No'
-            
-            # Проверяем привязан ли email
-            email_url = 'https://accountsettings.roblox.com/v1/email'
-            email_data = await self.make_authenticated_request(session, email_url, cookie, 'GET')
-            
-            email_status = 'Unknown'
-            if email_data:
-                if email_data.get('verified', False):
-                    email_status = 'Verified'
-                else:
-                    email_status = 'Unverified'
-            
-            # Проверяем привязан ли телефон
-            phone_url = 'https://accountsettings.roblox.com/v1/phone'
-            phone_data = await self.make_authenticated_request(session, phone_url, cookie, 'GET')
-            
-            phone_status = 'No'
-            if phone_data and phone_data.get('verified', False):
-                phone_status = 'Yes'
-            
-            # Проверяем PIN
-            pin_url = 'https://auth.roblox.com/v1/account/pin'
-            pin_data = await self.make_authenticated_request(session, pin_url, cookie, 'GET')
-            
-            pin_enabled = False
-            if pin_data and pin_data.get('isEnabled', False):
-                pin_enabled = True
-            
-            # Получаем информацию о сессиях
-            sessions_count = await self.get_sessions_count(session, cookie)
+                    
+                    # Проверяем email
+                    email_status = 'Unknown'
+                    email_match = re.search(r'email[^>]*verified[^>]*>([^<]+)', html, re.IGNORECASE)
+                    if email_match:
+                        if 'verified' in email_match.group(1).lower():
+                            email_status = 'Verified'
+                        else:
+                            email_status = 'Unverified'
+                    
+                    # Проверяем телефон
+                    phone_status = 'No'
+                    phone_match = re.search(r'phone[^>]*verified[^>]*>([^<]+)', html, re.IGNORECASE)
+                    if phone_match and 'verified' in phone_match.group(1).lower():
+                        phone_status = 'Yes'
+                    
+                    # Проверяем PIN
+                    pin_enabled = False
+                    pin_match = re.search(r'pin.*?enabled', html, re.IGNORECASE)
+                    if pin_match:
+                        pin_enabled = True
+                    
+                    return {
+                        'email_status': email_status,
+                        'phone_status': phone_status,
+                        'pin_enabled': pin_enabled,
+                        'above_13': above_13,
+                        'verified_age': 'No',
+                        'sessions_count': 1
+                    }
             
             return {
-                'email_status': email_status,
-                'phone_status': phone_status,
-                'pin_enabled': pin_enabled,
-                'above_13': above_13,
-                'verified_age': 'No',  # По умолчанию
-                'sessions_count': sessions_count
+                'email_status': 'Unknown',
+                'phone_status': 'No',
+                'pin_enabled': False,
+                'above_13': 'Unknown',
+                'verified_age': 'No',
+                'sessions_count': 1
             }
             
         except Exception as e:
             print(f"Contact info error: {e}")
-        
-        return {
-            'email_status': 'Unknown',
-            'phone_status': 'No',
-            'pin_enabled': False,
-            'above_13': 'Unknown',
-            'verified_age': 'No',
-            'sessions_count': 1
-        }
+            return {
+                'email_status': 'Unknown',
+                'phone_status': 'No',
+                'pin_enabled': False,
+                'above_13': 'Unknown',
+                'verified_age': 'No',
+                'sessions_count': 1
+            }
 
     async def get_sessions_count(self, session, cookie):
         """Получение количества активных сессий - УЛУЧШЕННАЯ ВЕРСИЯ"""
@@ -890,9 +837,9 @@ class AdvancedRobloxChecker:
             return 1
 
     async def get_complete_account_info(self, session, cookie, user_id, auth_data):
-        """Получение полной информации об аккаунте - ОБНОВЛЕННАЯ ВЕРСИЯ"""
+        """Получение полной информации об аккаунте - УПРОЩЕННАЯ ВЕРСИЯ"""
         try:
-            # Базовая информация
+            # Базовая информация из auth данных
             base_info = {
                 'username': auth_data.get('name', 'N/A'),
                 'display_name': auth_data.get('displayName', auth_data.get('name', 'N/A')),
@@ -901,60 +848,42 @@ class AdvancedRobloxChecker:
                 'created': auth_data.get('created', '')
             }
             
-            # Получаем информацию профиля для даты создания
-            profile_info = await self.get_user_profile_info(session, cookie, user_id)
-            if profile_info.get('created'):
-                base_info['created'] = profile_info['created']
-            
-            # Основные проверки
-            tasks = [
-                self.get_economy_info(session, cookie, user_id),
-                self.get_premium_status(session, cookie, user_id),
-                self.get_social_info(session, cookie, user_id),
-                self.get_security_info(session, cookie, user_id),
-                self.get_rap_value(session, cookie, user_id),
-                self.get_card_info(session, cookie),
-                self.get_total_spent_robux(session, cookie, user_id),
-                self.get_account_age_info(base_info['created']),  # Используем обновленную дату
-                self.get_privacy_settings(session, cookie, user_id),
-                self.get_contact_info(session, cookie, user_id),
-            ]
-            
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            
-            # Безопасное извлечение результатов
-            economy = results[0] if not isinstance(results[0], Exception) else {}
-            premium = results[1] if not isinstance(results[1], Exception) else {}
-            social = results[2] if not isinstance(results[2], Exception) else {}
-            security = results[3] if not isinstance(results[3], Exception) else {}
-            rap_value = results[4] if not isinstance(results[4], Exception) else {}
-            card = results[5] if not isinstance(results[5], Exception) else {}
-            total_spent = results[6] if not isinstance(results[6], Exception) else {}
-            age_info = results[7] if not isinstance(results[7], Exception) else {}
-            privacy_settings = results[8] if not isinstance(results[8], Exception) else {}
-            contact_info = results[9] if not isinstance(results[9], Exception) else {}
-            
-            # Объединяем все результаты
-            base_info.update(economy)
-            base_info.update(premium)
-            base_info.update(social)
-            base_info.update(security)
-            base_info.update(rap_value)
-            base_info.update(card)
-            base_info.update(total_spent)
+            # Получаем возраст аккаунта
+            age_info = await self.get_account_age_info(base_info['created'])
             base_info.update(age_info)
-            base_info.update(privacy_settings)
-            base_info.update(contact_info)
-            base_info.update(profile_info)
             
-            # Дефолтные значения для отсутствующих полей
+            # Основные проверки которые точно работают
+            economy_info = await self.get_economy_info(session, cookie, user_id)
+            base_info.update(economy_info)
+            
+            # Получаем остальную информацию
+            premium_info = await self.get_premium_status(session, cookie, user_id)
+            privacy_info = await self.get_privacy_settings(session, cookie, user_id)
+            contact_info = await self.get_contact_info(session, cookie, user_id)
+            social_info = await self.get_social_info(session, cookie, user_id)
+            security_info = await self.get_security_info(session, cookie, user_id)
+            rap_info = await self.get_rap_value(session, cookie, user_id)
+            spent_info = await self.get_total_spent_robux(session, cookie, user_id)
+            
+            # Объединяем все данные
+            base_info.update(premium_info)
+            base_info.update(privacy_info)
+            base_info.update(contact_info)
+            base_info.update(social_info)
+            base_info.update(security_info)
+            base_info.update(rap_info)
+            base_info.update(spent_info)
+            
+            # Устанавливаем значения по умолчанию для остальных полей
             default_values = {
+                'card_count': 0,
                 'groups_owned': 0,
                 'groups_pending': 0,
                 'groups_funds': 0,
                 'voice_enabled': 'No',
                 'roblox_badges_count': 0,
                 'billing_robux': 0,
+                'description': ''
             }
             
             base_info.update(default_values)
@@ -1012,24 +941,16 @@ class AdvancedRobloxChecker:
             'following_count': 0,
             '2fa_enabled': False,
             'rap_value': 0,
-            'billing_robux': 0,
-            'card_count': 0,
-            'inventory_privacy': 'Unknown',
-            'trade_privacy': 'Unknown',
+            'inventory_privacy': 'Everyone',
+            'trade_privacy': 'Everyone',
             'sessions_count': 1,
             'email_status': 'Unknown',
             'phone_status': 'No',
             'pin_enabled': False,
-            'groups_owned': 0,
-            'groups_pending': 0,
-            'groups_funds': 0,
             'above_13': 'Unknown',
             'verified_age': 'No',
-            'voice_enabled': 'No',
-            'roblox_badges_count': 0,
             'total_spent_robux': 0,
-            'account_value': 0,
-            'description': ''
+            'account_value': 0
         }
 
     async def check_single_cookie(self, cookie):
