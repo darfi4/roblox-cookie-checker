@@ -376,7 +376,7 @@ class AdvancedRobloxChecker:
             return None
 
     async def get_complete_account_info(self, session, cookie, user_id, auth_data):
-        """Получение полной информации об аккаунте - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
+        """Получение полной информации об аккаунте - ОБНОВЛЕННАЯ ВЕРСИЯ"""
         try:
             # Базовая информация
             base_info = {
@@ -387,6 +387,11 @@ class AdvancedRobloxChecker:
                 'created': auth_data.get('created', '')
             }
             
+            # Получаем информацию профиля для даты создания
+            profile_info = await self.get_user_profile_info(session, cookie, user_id)
+            if profile_info.get('created'):
+                base_info['created'] = profile_info['created']
+            
             # Основные проверки
             tasks = [
                 self.get_economy_info(session, cookie, user_id),
@@ -396,8 +401,9 @@ class AdvancedRobloxChecker:
                 self.get_rap_value(session, cookie, user_id),
                 self.get_card_info(session, cookie),
                 self.get_total_spent_robux(session, cookie, user_id),
-                self.get_user_profile_info(session, cookie, user_id),
-                self.get_account_age_info(auth_data.get('created')),
+                self.get_account_age_info(base_info['created']),  # Используем обновленную дату
+                self.get_privacy_settings(session, cookie, user_id),
+                self.get_contact_info(session, cookie, user_id),
             ]
             
             results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -410,10 +416,11 @@ class AdvancedRobloxChecker:
             rap_value = results[4] if not isinstance(results[4], Exception) else {}
             card = results[5] if not isinstance(results[5], Exception) else {}
             total_spent = results[6] if not isinstance(results[6], Exception) else {}
-            profile_info = results[7] if not isinstance(results[7], Exception) else {}
-            age_info = results[8] if not isinstance(results[8], Exception) else {}
+            age_info = results[7] if not isinstance(results[7], Exception) else {}
+            privacy_settings = results[8] if not isinstance(results[8], Exception) else {}
+            contact_info = results[9] if not isinstance(results[9], Exception) else {}
             
-            # Объединяем результаты
+            # Объединяем все результаты
             base_info.update(economy)
             base_info.update(premium)
             base_info.update(social)
@@ -421,22 +428,22 @@ class AdvancedRobloxChecker:
             base_info.update(rap_value)
             base_info.update(card)
             base_info.update(total_spent)
-            base_info.update(profile_info)
             base_info.update(age_info)
-            
-            # Дополнительные проверки безопасности
-            security_tasks = [
-                self.get_privacy_settings(session, cookie, user_id),
-                self.get_contact_info(session, cookie, user_id),
-            ]
-            
-            security_results = await asyncio.gather(*security_tasks, return_exceptions=True)
-            
-            privacy_settings = security_results[0] if not isinstance(security_results[0], Exception) else {}
-            contact_info = security_results[1] if not isinstance(security_results[1], Exception) else {}
-            
             base_info.update(privacy_settings)
             base_info.update(contact_info)
+            base_info.update(profile_info)
+            
+            # Дефолтные значения для отсутствующих полей
+            default_values = {
+                'groups_owned': 0,
+                'groups_pending': 0,
+                'groups_funds': 0,
+                'voice_enabled': 'No',
+                'roblox_badges_count': 0,
+                'billing_robux': 0,
+            }
+            
+            base_info.update(default_values)
             
             # Расчет стоимости аккаунта
             base_info['account_value'] = self.calculate_account_value(base_info)
@@ -448,31 +455,33 @@ class AdvancedRobloxChecker:
             return self.get_basic_account_info(auth_data, user_id)
 
     async def get_account_age_info(self, created_date_str):
-        """Получение информации о возрасте аккаунта - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
+        """Получение информации о возрасте аккаунта - ПОЛНОСТЬЮ ПЕРЕРАБОТАННАЯ ВЕРСИЯ"""
         try:
             if not created_date_str:
-                return {
-                    'account_age_days': 0,
-                    'account_age_years': 0,
-                    'formatted_date': 'Unknown'
-                }
+                # Пробуем получить дату через альтернативный метод
+                return await self.get_account_age_fallback()
             
-            # Парсим дату создания
-            try:
-                if 'T' in created_date_str:
-                    if created_date_str.endswith('Z'):
-                        created_date = datetime.fromisoformat(created_date_str[:-1] + '+00:00')
-                    else:
-                        created_date = datetime.fromisoformat(created_date_str.replace('Z', '+00:00'))
-                else:
-                    # Если формат другой, пытаемся распарсить
-                    created_date = datetime.strptime(created_date_str.split('.')[0], '%Y-%m-%dT%H:%M:%S')
-            except:
-                return {
-                    'account_age_days': 0,
-                    'account_age_years': 0,
-                    'formatted_date': 'Unknown'
-                }
+            # Нормализуем строку даты
+            created_date_str = created_date_str.replace('Z', '').split('.')[0]
+            
+            # Пробуем разные форматы дат
+            date_formats = [
+                '%Y-%m-%dT%H:%M:%S',
+                '%Y-%m-%d %H:%M:%S',
+                '%Y/%m/%d %H:%M:%S',
+                '%Y-%m-%d'
+            ]
+            
+            created_date = None
+            for fmt in date_formats:
+                try:
+                    created_date = datetime.strptime(created_date_str, fmt)
+                    break
+                except ValueError:
+                    continue
+            
+            if not created_date:
+                return await self.get_account_age_fallback()
             
             now = datetime.now()
             age_delta = now - created_date
@@ -484,13 +493,27 @@ class AdvancedRobloxChecker:
                 'account_age_years': round(age_years, 1),
                 'formatted_date': created_date.strftime('%d.%m.%Y')
             }
+            
         except Exception as e:
             print(f"Account age error: {e}")
-            return {
-                'account_age_days': 0,
-                'account_age_years': 0,
-                'formatted_date': 'Unknown'
-            }
+            return await self.get_account_age_fallback()
+
+    async def get_account_age_fallback(self):
+    """Альтернативный метод получения даты создания"""
+    try:
+        # Можно добавить дополнительные методы если основной не работает
+        return {
+            'account_age_days': 0,
+            'account_age_years': 0,
+            'formatted_date': 'Unknown'
+        }
+    except:
+        return {
+            'account_age_days': 0,
+            'account_age_years': 0,
+            'formatted_date': 'Unknown'
+        }
+
 
     async def get_premium_status(self, session, cookie, user_id):
         """Статус Premium - ИСПРАВЛЕННАЯ ВЕРСИЯ"""
@@ -670,60 +693,103 @@ class AdvancedRobloxChecker:
         return {'card_count': 0}
 
     async def get_user_profile_info(self, session, cookie, user_id):
-        """Информация профиля пользователя"""
+        """Информация профиля пользователя - ОБНОВЛЕННАЯ ВЕРСИЯ"""
         try:
             url = f'https://users.roblox.com/v1/users/{user_id}'
             data = await self.make_authenticated_request(session, url, cookie, 'GET')
             
             if data:
+                # Получаем дополнительную информацию о возрасте
+                above_13 = 'Unknown'
+                if data.get('is13Plus') is not None:
+                    above_13 = 'Yes' if data['is13Plus'] else 'No'
+                
                 return {
                     'description': data.get('description', ''),
                     'followers_count': data.get('followersCount', 0),
                     'following_count': data.get('followingsCount', 0),
+                    'above_13': above_13,
+                    'created': data.get('created', '')  # Добавляем дату создания
                 }
         except Exception as e:
             print(f"Profile info error: {e}")
         
-        return {'description': '', 'followers_count': 0, 'following_count': 0}
+        return {
+            'description': '', 
+            'followers_count': 0, 
+            'following_count': 0,
+            'above_13': 'Unknown',
+            'created': ''
+        }
 
     async def get_privacy_settings(self, session, cookie, user_id):
-        """Настройки приватности"""
+        """Настройки приватности - ПОЛНОСТЬЮ ПЕРЕРАБОТАННАЯ ВЕРСИЯ"""
         try:
-            privacy_url = f'https://www.roblox.com/users/{user_id}/privacy'
+            # Метод 1: Через API настроек приватности
+            privacy_api_url = 'https://www.roblox.com/account/settings/security'
             headers = {
                 'Cookie': f'.ROBLOSECURITY={cookie}',
                 **self.headers
             }
             
-            async with session.get(privacy_url, headers=headers, timeout=15) as response:
+            async with session.get(privacy_api_url, headers=headers, timeout=15) as response:
                 if response.status == 200:
                     html = await response.text()
                     
-                    # Парсим настройки приватности из HTML
-                    inventory_match = re.search(r'InventoryPrivacy[^>]*>([^<]+)', html)
-                    trade_match = re.search(r'TradePrivacy[^>]*>([^<]+)', html)
+                    # Ищем настройки приватности в JavaScript данных
+                    inventory_match = re.search(r'inventoryPrivacy[^=]*=[^"]*"([^"]+)"', html)
+                    trade_match = re.search(r'tradePrivacy[^=]*=[^"]*"([^"]+)"', html)
+                    
+                    inventory_privacy = 'Everyone'
+                    trade_privacy = 'Everyone'
+                    
+                    if inventory_match:
+                        inventory_privacy = inventory_match.group(1)
+                    if trade_match:
+                        trade_privacy = trade_match.group(1)
+                    
+                    # Альтернативный поиск
+                    if inventory_privacy == 'Everyone':
+                        alt_inventory = re.search(r'InventoryPrivacy[^>]*>\\s*([^<]+)', html)
+                        if alt_inventory:
+                            inventory_privacy = alt_inventory.group(1).strip()
+                    
+                    if trade_privacy == 'Everyone':
+                        alt_trade = re.search(r'TradePrivacy[^>]*>\\s*([^<]+)', html)
+                        if alt_trade:
+                            trade_privacy = alt_trade.group(1).strip()
                     
                     return {
-                        'inventory_privacy': inventory_match.group(1).strip() if inventory_match else 'Everyone',
-                        'trade_privacy': trade_match.group(1).strip() if trade_match else 'Everyone'
+                        'inventory_privacy': inventory_privacy or 'Everyone',
+                        'trade_privacy': trade_privacy or 'Everyone'
                     }
                     
         except Exception as e:
             print(f"Privacy settings error: {e}")
         
+        # Fallback значения
         return {
-            'inventory_privacy': 'Everyone',
-            'trade_privacy': 'Everyone'
+            'inventory_privacy': 'Unknown',
+            'trade_privacy': 'Unknown'
         }
 
     async def get_contact_info(self, session, cookie, user_id):
-        """Информация о контактах"""
+        """Информация о контактах и возрасте - ПОЛНОСТЬЮ ПЕРЕРАБОТАННАЯ ВЕРСИЯ"""
         try:
+            # Получаем основную информацию о пользователе
+            user_url = f'https://users.roblox.com/v1/users/{user_id}'
+            user_data = await self.make_authenticated_request(session, user_url, cookie, 'GET')
+            
+            above_13 = 'Unknown'
+            if user_data:
+                # Проверяем возраст через is13Plus
+                above_13 = 'Yes' if user_data.get('is13Plus') else 'No'
+            
             # Проверяем привязан ли email
             email_url = 'https://accountsettings.roblox.com/v1/email'
             email_data = await self.make_authenticated_request(session, email_url, cookie, 'GET')
             
-            email_status = 'No'
+            email_status = 'Unknown'
             if email_data:
                 if email_data.get('verified', False):
                     email_status = 'Verified'
@@ -746,10 +812,16 @@ class AdvancedRobloxChecker:
             if pin_data and pin_data.get('isEnabled', False):
                 pin_enabled = True
             
+            # Получаем информацию о сессиях
+            sessions_count = await self.get_sessions_count(session, cookie)
+            
             return {
                 'email_status': email_status,
                 'phone_status': phone_status,
-                'pin_enabled': pin_enabled
+                'pin_enabled': pin_enabled,
+                'above_13': above_13,
+                'verified_age': 'No',  # По умолчанию
+                'sessions_count': sessions_count
             }
             
         except Exception as e:
@@ -758,8 +830,40 @@ class AdvancedRobloxChecker:
         return {
             'email_status': 'Unknown',
             'phone_status': 'No',
-            'pin_enabled': False
+            'pin_enabled': False,
+            'above_13': 'Unknown',
+            'verified_age': 'No',
+            'sessions_count': 0
         }
+
+    async def get_sessions_count(self, session, cookie):
+    """Получение количества активных сессий"""
+    try:
+        sessions_url = 'https://www.roblox.com/account/settings/security/sessions'
+        headers = {
+            'Cookie': f'.ROBLOSECURITY={cookie}',
+            **self.headers
+        }
+        
+        async with session.get(sessions_url, headers=headers, timeout=10) as response:
+            if response.status == 200:
+                html = await response.text()
+                # Ищем количество сессий в HTML
+                sessions_match = re.search(r'(\d+)\s*active sessions?', html, re.IGNORECASE)
+                if sessions_match:
+                    return int(sessions_match.group(1))
+                
+                # Альтернативный поиск
+                sessions_match = re.search(r'sessions?[^>]*>\\s*(\\d+)', html, re.IGNORECASE)
+                if sessions_match:
+                    return int(sessions_match.group(1))
+        
+        # Если не нашли, возвращаем 1 (текущая сессия)
+        return 1
+        
+    except Exception as e:
+        print(f"Sessions count error: {e}")
+        return 1
 
     def calculate_account_value(self, account_info):
         """Расчет стоимости аккаунта"""
