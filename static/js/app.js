@@ -182,6 +182,172 @@ function initializeTabs() {
             switchTab(tabName);
         });
     });
+    
+    // Добавляем обработчики для игровых чекеров
+    initializeGameCheckers();
+}
+
+function initializeGameCheckers() {
+    const checkGamesBtn = document.getElementById('checkGamesButton');
+    if (checkGamesBtn) {
+        checkGamesBtn.addEventListener('click', checkAllGames);
+    }
+    
+    // Обработчики для отдельных игр
+    const gameCheckButtons = document.querySelectorAll('.game-check-btn');
+    gameCheckButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const gameId = this.getAttribute('data-game');
+            checkSpecificGame(gameId);
+        });
+    });
+}
+
+async function checkAllGames() {
+    const cookie = document.getElementById('cookiesInput').value.trim();
+    if (!cookie) {
+        showNotification('Введите куки для проверки игр', 'error');
+        return;
+    }
+    
+    const button = document.getElementById('checkGamesButton');
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ПРОВЕРКА ИГР...';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch('/api/check_games', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ cookie: cookie })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayGamesResults(data.results);
+            showNotification(`Проверка игр завершена! Общая стоимость: $${data.results.total_portfolio_value}`, 'success');
+        } else {
+            throw new Error(data.error || 'Ошибка сервера');
+        }
+        
+    } catch (error) {
+        showNotification('Ошибка проверки игр: ' + error.message, 'error');
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+async function checkSpecificGame(gameId) {
+    const cookie = document.getElementById('cookiesInput').value.trim();
+    if (!cookie) {
+        showNotification('Введите куки для проверки игры', 'error');
+        return;
+    }
+    
+    const button = document.querySelector(`[data-game="${gameId}"]`);
+    const originalText = button.innerHTML;
+    
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    button.disabled = true;
+    
+    try {
+        const response = await fetch('/api/check_specific_game', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+                cookie: cookie,
+                game_id: gameId 
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            displayGameResult(gameId, data.result);
+            showNotification(`Проверка ${gameId} завершена!`, 'success');
+        } else {
+            throw new Error(data.error || 'Ошибка сервера');
+        }
+        
+    } catch (error) {
+        showNotification('Ошибка проверки игры: ' + error.message, 'error');
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+function displayGamesResults(results) {
+    const container = document.getElementById('gamesResultsContainer');
+    if (!container) return;
+    
+    let html = `
+        <div class="cyber-card fade-in-up">
+            <div class="card-header">
+                <i class="fas fa-gamepad"></i>
+                <h2>РЕЗУЛЬТАТЫ ПРОВЕРКИ ИГР</h2>
+            </div>
+            <div class="results-summary">
+                <div class="stats-grid">
+                    <div class="cyber-stat">
+                        <div class="stat-value">${results.games_checked}</div>
+                        <div class="stat-label">ИГР ПРОВЕРЕНО</div>
+                    </div>
+                    <div class="cyber-stat success">
+                        <div class="stat-value">$${results.total_portfolio_value}</div>
+                        <div class="stat-label">ОБЩАЯ СТОИМОСТЬ</div>
+                    </div>
+                </div>
+            </div>
+    `;
+    
+    // Отображаем результаты по каждой игре
+    Object.keys(results.detailed_results).forEach(gameKey => {
+        const gameData = results.detailed_results[gameKey];
+        const gameResult = gameData.result;
+        
+        if (!gameResult.error) {
+            html += `
+                <div class="game-result">
+                    <h3>${gameData.game_name}</h3>
+                    <div class="game-stats">
+                        <span>Предметы: ${gameResult.total_items}</span>
+                        <span>Стоимость: $${gameResult.total_estimated_value}</span>
+                        <span>Редкие: ${gameResult.rare_items.length}</span>
+                    </div>
+                    ${gameResult.rare_items.length > 0 ? `
+                        <div class="rare-items">
+                            <h4>Топ редкие предметы:</h4>
+                            ${gameResult.rare_items.map(item => `
+                                <div class="rare-item">
+                                    <span class="item-name">${item.name}</span>
+                                    <span class="item-rarity ${item.rarity.toLowerCase()}">${item.rarity}</span>
+                                    <span class="item-value">$${item.value}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            html += `
+                <div class="game-result error">
+                    <h3>${gameData.game_name}</h3>
+                    <p>Ошибка: ${gameResult.error}</p>
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
 }
 
 function switchTab(tabName) {

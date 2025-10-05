@@ -637,6 +637,63 @@ body {
     flex-wrap: wrap;
 }
 
+.game-result {
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    background: var(--card-bg);
+}
+
+.game-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.rare-items {
+    margin-top: 1rem;
+}
+
+.rare-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--card-border);
+}
+
+.item-rarity {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+}
+
+.item-rarity.legendary {
+    background: gold;
+    color: black;
+}
+
+.item-rarity.ultra-rare {
+    background: purple;
+    color: white;
+}
+
+.item-rarity.rare {
+    background: blue;
+    color: white;
+}
+
+.item-rarity.uncommon {
+    background: green;
+    color: white;
+}
+
+.item-rarity.common {
+    background: gray;
+    color: white;
+}
+
 /* Модальное окно - исправленная версия */
 .modal {
     display: none;

@@ -27,6 +27,280 @@ active_sessions = {}
 session_lock = threading.Lock()
 SESSION_TIMEOUT = 300  # 5 минут
 
+class RobloxGameChecker:
+    def __init__(self):
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.roblox.com/',
+            'Origin': 'https://www.roblox.com'
+        }
+
+    async def check_game_inventory(self, cookie: str, game_universe_id: int) -> Dict:
+        """Проверка инвентаря в конкретной игре"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                # Получаем CSRF токен
+                csrf_token = await self.get_csrf_token(session, cookie)
+                
+                if not csrf_token:
+                    return {"error": "Failed to get CSRF token"}
+                
+                headers = {
+                    'Cookie': f'.ROBLOSECURITY={cookie}',
+                    'X-CSRF-TOKEN': csrf_token,
+                    **self.headers
+                }
+                
+                # Получаем инвентарь игры
+                inventory_url = f"https://inventory.roblox.com/v2/users/1/items/Type/Asset/Group/{game_universe_id}?limit=100"
+                
+                async with session.get(inventory_url, headers=headers) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        return self.parse_game_inventory(data, game_universe_id)
+                    else:
+                        return {"error": f"Failed to fetch inventory: {response.status}"}
+                        
+        except Exception as e:
+            return {"error": f"Game check error: {str(e)}"}
+
+    async def check_adopt_me(self, cookie: str) -> Dict:
+        """Проверка инвентаря в Adopt Me"""
+        adopt_me_universe_id = 2534724415  # Universe ID Adopt Me
+        return await self.check_game_inventory(cookie, adopt_me_universe_id)
+
+    async def check_murder_mystery_2(self, cookie: str) -> Dict:
+        """Проверка инвентаря в Murder Mystery 2"""
+        mm2_universe_id = 142823291  # Universe ID MM2
+        return await self.check_game_inventory(cookie, mm2_universe_id)
+
+    async def check_grow_a_garden(self, cookie: str) -> Dict:
+        """Проверка инвентаря в Grow a Garden"""
+        garden_universe_id = 4490140733  # Universe ID Grow a Garden
+        return await self.check_game_inventory(cookie, garden_universe_id)
+
+    async def check_blox_fruits(self, cookie: str) -> Dict:
+        """Проверка инвентаря в Blox Fruits"""
+        blox_fruits_id = 2753915549  # Universe ID Blox Fruits
+        return await self.check_game_inventory(cookie, blox_fruits_id)
+
+    async def check_royale_high(self, cookie: str) -> Dict:
+        """Проверка инвентаря в Royale High"""
+        royale_high_id = 735030788  # Universe ID Royale High
+        return await self.check_game_inventory(cookie, royale_high_id)
+
+    def parse_game_inventory(self, inventory_data: Dict, game_id: int) -> Dict:
+        """Парсинг инвентаря игры"""
+        try:
+            items = inventory_data.get('data', [])
+            
+            # Группируем предметы по типам
+            categorized_items = {
+                'pets': [],
+                'eggs': [],
+                'vehicles': [],
+                'toys': [],
+                'gifts': [],
+                'weapons': [],
+                'fruits': [],
+                'accessories': [],
+                'clothing': [],
+                'other': []
+            }
+            
+            total_value = 0
+            rare_items = []
+            
+            for item in items:
+                item_name = item.get('name', 'Unknown')
+                item_asset_id = item.get('assetId')
+                item_serial = item.get('serialNumber')
+                
+                # Определяем категорию предмета
+                category = self.categorize_item(item_name, game_id)
+                categorized_items[category].append({
+                    'name': item_name,
+                    'asset_id': item_asset_id,
+                    'serial': item_serial,
+                    'rarity': self.determine_rarity(item_name),
+                    'estimated_value': self.estimate_value(item_name, category)
+                })
+                
+                # Добавляем к общей стоимости
+                item_value = self.estimate_value(item_name, category)
+                total_value += item_value
+                
+                # Если предмет редкий, добавляем в список
+                if self.determine_rarity(item_name) in ['Legendary', 'Ultra-Rare']:
+                    rare_items.append({
+                        'name': item_name,
+                        'rarity': self.determine_rarity(item_name),
+                        'value': item_value
+                    })
+            
+            # Сортируем редкие предметы по стоимости
+            rare_items.sort(key=lambda x: x['value'], reverse=True)
+            
+            return {
+                'total_items': len(items),
+                'total_estimated_value': total_value,
+                'categorized_items': categorized_items,
+                'rare_items': rare_items[:10],  # Топ 10 самых ценных
+                'item_categories': {k: len(v) for k, v in categorized_items.items()}
+            }
+            
+        except Exception as e:
+            return {"error": f"Inventory parsing error: {str(e)}"}
+
+    def categorize_item(self, item_name: str, game_id: int) -> str:
+        """Определяет категорию предмета"""
+        item_name_lower = item_name.lower()
+        
+        # Adopt Me категории
+        if game_id == 2534724415:  # Adopt Me
+            if any(word in item_name_lower for word in ['pet', 'dog', 'cat', 'dragon', 'unicorn', 'owl', 'parrot']):
+                return 'pets'
+            elif 'egg' in item_name_lower:
+                return 'eggs'
+            elif any(word in item_name_lower for word in ['vehicle', 'car', 'bike', 'scooter']):
+                return 'vehicles'
+            elif any(word in item_name_lower for word in ['toy', 'ball', 'frisbee']):
+                return 'toys'
+            elif 'gift' in item_name_lower:
+                return 'gifts'
+        
+        # Murder Mystery 2 категории
+        elif game_id == 142823291:  # MM2
+            if any(word in item_name_lower for word in ['knife', 'gun', 'sword', 'weapon']):
+                return 'weapons'
+        
+        # Blox Fruits категории
+        elif game_id == 2753915549:  # Blox Fruits
+            if 'fruit' in item_name_lower:
+                return 'fruits'
+            elif any(word in item_name_lower for word in ['sword', 'gun']):
+                return 'weapons'
+        
+        # Royale High категории
+        elif game_id == 735030788:  # Royale High
+            if any(word in item_name_lower for word in ['skirt', 'dress', 'heels', 'shoes']):
+                return 'clothing'
+            elif any(word in item_name_lower for word in ['halo', 'crown', 'accessory']):
+                return 'accessories'
+        
+        return 'other'
+
+    def determine_rarity(self, item_name: str) -> str:
+        """Определяет редкость предмета"""
+        item_name_lower = item_name.lower()
+        
+        rarity_keywords = {
+            'common': ['common', 'basic', 'normal'],
+            'uncommon': ['uncommon', 'rare', 'special'],
+            'rare': ['rare', 'epic', 'exclusive'],
+            'legendary': ['legendary', 'mythic', 'ancient'],
+            'ultra-rare': ['ultra-rare', 'mega', 'secret', 'limited']
+        }
+        
+        for rarity, keywords in rarity_keywords.items():
+            if any(keyword in item_name_lower for keyword in keywords):
+                return rarity.capitalize()
+        
+        return 'Common'
+
+    def estimate_value(self, item_name: str, category: str) -> float:
+        """Оценка стоимости предмета (в Robux)"""
+        # Базовая оценка стоимости на основе названия и категории
+        base_values = {
+            'pets': {
+                'common': 10,
+                'uncommon': 50,
+                'rare': 200,
+                'legendary': 1000,
+                'ultra-rare': 5000
+            },
+            'weapons': {
+                'common': 5,
+                'uncommon': 25,
+                'rare': 100,
+                'legendary': 500,
+                'ultra-rare': 2000
+            },
+            'fruits': {
+                'common': 8,
+                'uncommon': 40,
+                'rare': 150,
+                'legendary': 800,
+                'ultra-rare': 3000
+            },
+            'accessories': {
+                'common': 3,
+                'uncommon': 15,
+                'rare': 75,
+                'legendary': 300,
+                'ultra-rare': 1500
+            }
+        }
+        
+        rarity = self.determine_rarity(item_name).lower()
+        category_base = base_values.get(category, base_values['accessories'])
+        
+        return category_base.get(rarity, 10)
+
+    async def get_csrf_token(self, session, cookie: str) -> Optional[str]:
+        """Получение CSRF токена"""
+        try:
+            async with session.post(
+                'https://auth.roblox.com/v2/login',
+                headers={'Cookie': f'.ROBLOSECURITY={cookie}'}
+            ) as response:
+                if response.status == 403 and 'x-csrf-token' in response.headers:
+                    return response.headers['x-csrf-token']
+        except:
+            pass
+        return None
+
+    async def check_all_games(self, cookie: str) -> Dict:
+        """Проверка всех популярных игр"""
+        games = {
+            'adopt_me': ('Adopt Me', 2534724415),
+            'murder_mystery_2': ('Murder Mystery 2', 142823291),
+            'grow_a_garden': ('Grow a Garden', 4490140733),
+            'blox_fruits': ('Blox Fruits', 2753915549),
+            'royale_high': ('Royale High', 735030788)
+        }
+        
+        results = {}
+        total_value = 0
+        
+        for game_key, (game_name, game_id) in games.items():
+            print(f"Checking {game_name}...")
+            game_result = await self.check_game_inventory(cookie, game_id)
+            results[game_key] = {
+                'game_name': game_name,
+                'result': game_result
+            }
+            
+            if 'total_estimated_value' in game_result:
+                total_value += game_result['total_estimated_value']
+            
+            # Задержка между запросами чтобы избежать блокировки
+            await asyncio.sleep(1)
+        
+        return {
+            'total_portfolio_value': total_value,
+            'games_checked': len(games),
+            'detailed_results': results
+        }
+
+# Добавляем в основной класс AdvancedRobloxChecker
+async def check_games_inventory(self, cookie: str) -> Dict:
+    """Проверка игрового инвентаря аккаунта"""
+    game_checker = RobloxGameChecker()
+    return await game_checker.check_all_games(cookie)
+
 def cleanup_sessions():
     with session_lock:
         current_time = time.time()
@@ -1027,12 +1301,90 @@ def async_to_sync(f):
     return wrapper
 
 checker = AdvancedRobloxChecker()
+AdvancedRobloxChecker.check_games_inventory = check_games_inventory
 
 @app.route('/')
 def index():
     session_id = get_user_id()
     update_user_session(session_id)
     return render_template('index.html')
+
+@app.route('/api/check_games', methods=['POST'])
+@async_to_sync
+async def api_check_games():
+    """API для проверки игрового инвентаря"""
+    try:
+        user_id = get_user_id()
+        update_user_session(user_id)
+        
+        data = request.get_json()
+        if not data or 'cookie' not in data:
+            return jsonify({'error': 'No cookie provided'}), 400
+        
+        cookie = data['cookie'].strip()
+        
+        if not cookie:
+            return jsonify({'error': 'Empty cookie provided'}), 400
+        
+        # Создаем экземпляр чекера
+        game_checker = RobloxGameChecker()
+        
+        # Проверяем все игры
+        results = await game_checker.check_all_games(cookie)
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'checked_at': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Games check error: {str(e)}'}), 500
+
+@app.route('/api/check_specific_game', methods=['POST'])
+@async_to_sync
+async def api_check_specific_game():
+    """API для проверки конкретной игры"""
+    try:
+        user_id = get_user_id()
+        update_user_session(user_id)
+        
+        data = request.get_json()
+        if not data or 'cookie' not in data or 'game_id' not in data:
+            return jsonify({'error': 'Missing required parameters'}), 400
+        
+        cookie = data['cookie'].strip()
+        game_id = data['game_id']
+        
+        if not cookie:
+            return jsonify({'error': 'Empty cookie provided'}), 400
+        
+        game_checker = RobloxGameChecker()
+        
+        # Поддерживаемые игры
+        supported_games = {
+            'adopt_me': game_checker.check_adopt_me,
+            'mm2': game_checker.check_murder_mystery_2,
+            'garden': game_checker.check_grow_a_garden,
+            'blox_fruits': game_checker.check_blox_fruits,
+            'royale_high': game_checker.check_royale_high
+        }
+        
+        if game_id not in supported_games:
+            return jsonify({'error': f'Unsupported game: {game_id}'}), 400
+        
+        # Проверяем выбранную игру
+        result = await supported_games[game_id](cookie)
+        
+        return jsonify({
+            'success': True,
+            'game_id': game_id,
+            'result': result,
+            'checked_at': datetime.now().isoformat()
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Game check error: {str(e)}'}), 500
 
 @app.route('/api/global_stats')
 def api_global_stats():
